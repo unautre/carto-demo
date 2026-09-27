@@ -1,0 +1,254 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { DECK_KINDS, KINDS, makeLayer, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
+import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
+import { unionBounds } from '../data';
+import type { DeckLayerKind, LayerNode } from '../types';
+import { WfsFormatSelect } from './WfsFormatSelect';
+
+type Tab = 'deck' | 'wms' | 'wfs';
+
+interface Props {
+  onAdd: (layer: LayerNode, zoom: boolean) => void;
+  onClose: () => void;
+}
+
+export function AddLayerDialog({ onAdd, onClose }: Props) {
+  const [tab, setTab] = useState<Tab>('deck');
+  const [zoom, setZoom] = useState(true);
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+
+  const add = (layer: LayerNode) => {
+    onAdd(layer, zoom);
+    onClose();
+  };
+
+  return (
+    <dialog ref={dialog} className="dialog" onClose={onClose} onClick={(e) => e.target === dialog.current && onClose()}>
+      <div className="dialog-body">
+        <header className="dialog-header">
+          <h2>Add layer</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+        <nav className="tabs" role="tablist">
+          {(['deck', 'wms', 'wfs'] as Tab[]).map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
+              {t === 'deck' ? 'deck.gl layer' : t.toUpperCase()}
+            </button>
+          ))}
+        </nav>
+        {tab === 'deck' && <DeckForm onAdd={add} />}
+        {tab === 'wms' && <ServiceForm service="WMS" onAdd={add} />}
+        {tab === 'wfs' && <ServiceForm service="WFS" onAdd={add} />}
+        <label className="check zoom-check">
+          <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
+          Zoom to the layer after adding
+        </label>
+      </div>
+    </dialog>
+  );
+}
+
+function DeckForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
+  const [kind, setKind] = useState<DeckLayerKind>('scatterplot');
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState(KINDS.scatterplot.sampleUrl!);
+  const samples = new Set(DECK_KINDS.map((k) => KINDS[k].sampleUrl));
+
+  const pick = (k: DeckLayerKind) => {
+    setKind(k);
+    // Keep a URL the user typed; swap sample URLs for the new kind's sample.
+    if (!url || samples.has(url)) setUrl(KINDS[k].sampleUrl!);
+  };
+
+  return (
+    <form
+      className="form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onAdd(makeLayer(kind, name.trim() || `${KINDS[kind].label} layer`, url.trim()));
+      }}
+    >
+      <div className="kind-grid">
+        {DECK_KINDS.map((k) => (
+          <button type="button" key={k} className={`kind-card ${kind === k ? 'active' : ''}`} onClick={() => pick(k)}>
+            <span className="kind-icon big" style={{ color: KINDS[k].style.color }}>{KINDS[k].icon}</span>
+            {KINDS[k].label}
+          </button>
+        ))}
+      </div>
+      <p className="muted hint">{KINDS[kind].hint}</p>
+      <label className="field">
+        <span>Name</span>
+        <input value={name} placeholder={`${KINDS[kind].label} layer`} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Data URL (JSON / GeoJSON, CORS-enabled)</span>
+        <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
+      </label>
+      <button type="button" className="link" onClick={() => setUrl(KINDS[kind].sampleUrl!)}>Use sample data</button>
+      <div className="form-actions">
+        <button className="btn primary" type="submit">Add {KINDS[kind].label} layer</button>
+      </div>
+    </form>
+  );
+}
+
+function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: LayerNode) => void }) {
+  const presets: ServicePreset[] = service === 'WMS' ? WMS_PRESETS : WFS_PRESETS;
+  const [url, setUrl] = useState(presets[0].url);
+  const [selected, setSelected] = useState<string[]>([presets[0].layer]);
+  const [manual, setManual] = useState(presets[0].layer);
+  const [name, setName] = useState('');
+  const [caps, setCaps] = useState<Capabilities | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('');
+  const [maxFeatures, setMaxFeatures] = useState(1000);
+  const [swapXY, setSwapXY] = useState(false);
+  const [format, setFormat] = useState('image/png');
+  const [outputFormat, setOutputFormat] = useState(WFS_JSON_FORMAT);
+
+  const applyPreset = (p: ServicePreset) => {
+    setUrl(p.url);
+    setSelected([p.layer]);
+    setManual(p.layer);
+    setName(p.label.split('–').pop()!.trim());
+    setCaps(null);
+    setError('');
+  };
+
+  const loadCaps = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const c = service === 'WMS' ? await fetchWmsCapabilities(url) : await fetchWfsCapabilities(url);
+      if (!c.layers.length) throw new Error('No layers found in capabilities');
+      // Fall back to GML when the server doesn't offer any JSON output.
+      if (c.outputFormats) setOutputFormat(c.outputFormats.find(isJsonFormat) ?? '');
+      setCaps(c);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg === 'Failed to fetch' ? 'Network or CORS error: the server must allow cross-origin requests' : msg);
+      setCaps(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const visibleLayers = useMemo(() => {
+    const q = filter.toLowerCase();
+    const list = caps?.layers ?? [];
+    return (q ? list.filter((l) => l.name.toLowerCase().includes(q) || l.title.toLowerCase().includes(q)) : list).slice(0, 300);
+  }, [caps, filter]);
+
+  const layerNames = caps ? selected : manual.split(',').map((s) => s.trim()).filter(Boolean);
+  const chosen: CapabilityLayer[] = caps ? caps.layers.filter((l) => selected.includes(l.name)) : [];
+
+  const toggle = (n: string) => {
+    if (service === 'WFS') setSelected([n]);
+    else setSelected((s) => (s.includes(n) ? s.filter((x) => x !== n) : [...s, n]));
+  };
+
+  const submit = () => {
+    const bounds = unionBounds(chosen.map((l) => l.bounds));
+    const title = name.trim() || chosen.map((l) => l.title).join(', ') || layerNames.join(', ');
+    if (service === 'WMS') {
+      const version = caps?.version === '1.1.1' ? '1.1.1' : '1.3.0';
+      onAdd(makeLayer('wms', title, url.trim(), { bounds, wms: { layers: layerNames.join(','), styles: '', format, transparent: true, version } }));
+    } else {
+      const version = caps?.version.startsWith('1.') ? '1.1.0' : '2.0.0';
+      onAdd(makeLayer('wfs', title, url.trim(), { bounds, wfs: { typeName: layerNames[0], version, maxFeatures, swapXY, outputFormat } }));
+    }
+  };
+
+  return (
+    <form className="form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <label className="field">
+        <span>Examples</span>
+        <select onChange={(e) => applyPreset(presets[+e.target.value])} defaultValue="0">
+          {presets.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
+        </select>
+      </label>
+      <label className="field">
+        <span>{service} endpoint</span>
+        <div className="input-with-btn">
+          <input type="url" required value={url} onChange={(e) => { setUrl(e.target.value); setCaps(null); }} />
+          <button type="button" className="btn" onClick={loadCaps} disabled={loading || !url}>
+            {loading ? 'Loading…' : service === 'WMS' ? 'Get layers' : 'Get feature types'}
+          </button>
+        </div>
+      </label>
+      {error && <div className="error-box">{error}</div>}
+
+      {caps ? (
+        <div className="caps">
+          <div className="caps-head">
+            <strong>{caps.title || service}</strong>
+            <span className="muted"> · v{caps.version} · {caps.layers.length} {service === 'WMS' ? 'layers' : 'feature types'}</span>
+          </div>
+          <input className="filter" placeholder="Filter…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <ul className="caps-list">
+            {visibleLayers.map((l) => (
+              <li key={l.name}>
+                <label>
+                  <input
+                    type={service === 'WMS' ? 'checkbox' : 'radio'}
+                    name="caps-layer"
+                    checked={selected.includes(l.name)}
+                    onChange={() => toggle(l.name)}
+                  />
+                  <span className="caps-title">{l.title}</span>
+                  <code>{l.name}</code>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <label className="field">
+          <span>{service === 'WMS' ? 'Layer name(s), comma-separated' : 'Feature type name'}</span>
+          <input required value={manual} onChange={(e) => setManual(e.target.value)} />
+        </label>
+      )}
+
+      <div className="field-row">
+        <label className="field">
+          <span>Name</span>
+          <input value={name} placeholder="Defaults to the layer title" onChange={(e) => setName(e.target.value)} />
+        </label>
+        {service === 'WMS' ? (
+          <label className="field">
+            <span>Format</span>
+            <select value={format} onChange={(e) => setFormat(e.target.value)}>
+              <option>image/png</option>
+              <option>image/jpeg</option>
+            </select>
+          </label>
+        ) : (
+          <>
+            <label className="field narrow">
+              <span>Max features</span>
+              <input type="number" min={1} value={maxFeatures} onChange={(e) => setMaxFeatures(Math.max(1, +e.target.value))} />
+            </label>
+            <label className="check" title="Use when features appear mirrored (lat/lon axis order)">
+              <input type="checkbox" checked={swapXY} onChange={(e) => setSwapXY(e.target.checked)} />
+              Swap X/Y
+            </label>
+          </>
+        )}
+      </div>
+      {service === 'WFS' && (
+        <div className="field-row">
+          <WfsFormatSelect value={outputFormat} onChange={setOutputFormat} serverFormats={caps?.outputFormats} />
+        </div>
+      )}
+      <div className="form-actions">
+        <button className="btn primary" type="submit" disabled={!layerNames.length}>Add {service} layer</button>
+      </div>
+    </form>
+  );
+}
