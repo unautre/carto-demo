@@ -23,6 +23,33 @@ npm test         # unit tests (tree operations, data normalisation, GML parsing)
 npm run build    # production build in dist/
 ```
 
+## Docker
+
+The image builds the app with Node, then serves the compiled `dist/` with nginx on port 80:
+
+```bash
+docker build -t deckgl-layer-manager .
+docker run --rm -p 8080:80 deckgl-layer-manager   # http://localhost:8080
+```
+
+`nginx.conf` caches the hashed files in `/assets` for a year and makes the browser revalidate `index.html`, so a new deployment shows up on the next reload.
+
+### Publishing to Docker Hub
+
+`.github/workflows/docker.yml` runs the tests and the build, then builds a `linux/amd64` + `linux/arm64` image:
+
+- a push to `main` publishes `latest` and `sha-<commit>`;
+- a `vX.Y.Z` tag publishes `X.Y.Z`, `X.Y` and `X`;
+- a pull request only builds the image, without pushing it.
+
+In the GitHub repository, go to *Settings → Secrets and variables → Actions* and set:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Variable | `DOCKERHUB_USERNAME` | Docker Hub user or organisation |
+| Secret | `DOCKERHUB_TOKEN` | Docker Hub access token with *Read & Write* scope |
+| Variable (optional) | `DOCKERHUB_IMAGE` | Repository name, `deckgl-layer-manager` by default |
+
 ## How it works
 
 | File | Role |
