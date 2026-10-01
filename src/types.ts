@@ -46,6 +46,17 @@ export interface ClickHouseParams {
   render: DeckLayerKind;
 }
 
+export interface DataFilterConfig {
+  enabled: boolean;
+  /**
+   * JS function body for deck.gl's DataFilterExtension `getFilterValue` accessor.
+   * Receives `properties` (the row/feature's properties) and `d` (the raw row/feature); must return a number.
+   */
+  getFilterValue: string;
+  /** rows whose value falls within [min, max] are shown; others are hidden */
+  filterRange: [number, number];
+}
+
 export interface LayerNode {
   type: 'layer';
   id: string;
@@ -58,6 +69,8 @@ export interface LayerNode {
   wms?: WmsParams;
   wfs?: WfsParams;
   clickhouse?: ClickHouseParams;
+  /** deck.gl DataFilterExtension, applied to every non-WMS layer kind */
+  dataFilter?: DataFilterConfig;
   /** known extent, e.g. from GetCapabilities */
   bounds?: Bounds;
   /** bumped by "Reload" to force a refetch */

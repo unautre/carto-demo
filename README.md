@@ -10,7 +10,7 @@ A small web app: a deck.gl map with a side panel to manage layers.
   - drop on the middle of a group header to go inside it (the top quarter of the header places the item before the group);
   - use the "Move to bottom" zone that shows up while you drag to go to the end of the top level.
   - Like most GIS tools, **the top of the list is drawn on top**.
-- **Per-layer settings** (⚙): opacity, colour, radius or line width, data or service URL, WMS layers/format/version, WFS type/max features/axis swap/output format, ClickHouse query/render kind/database/credentials, and Reload.
+- **Per-layer settings** (⚙): opacity, colour, radius or line width, data or service URL, WMS layers/format/version, WFS type/max features/axis swap/output format, ClickHouse query/render kind/database/credentials, a **data filter** (deck.gl's `DataFilterExtension`, with a JS `getFilterValue` you write), and Reload.
 - **Zoom to** (⌖) a layer or a whole group. Rename a layer or group by double-clicking its name.
 - Basemap switcher (Esri Light/Dark Gray, OpenStreetMap, Esri Imagery, none). The layer tree is saved to `localStorage`, and **Reset demo** brings back the sample layers.
 
@@ -61,6 +61,7 @@ In the GitHub repository, go to *Settings → Secrets and variables → Actions*
 | `src/ogc.ts` | WMS GetMap / WFS GetFeature URLs, GetCapabilities parsing |
 | `src/gml.ts` | WFS GML (2 / 3.1 / 3.2) → GeoJSON |
 | `src/clickhouse.ts` | ClickHouse HTTP interface query URL + fetch |
+| `src/layerExtensions.ts` | deck.gl layer extensions (currently `DataFilterExtension`): compiles the user's `getFilterValue` JS and builds the layer props |
 | `src/deckLayers.ts` | Tree node → deck.gl layer; basemaps |
 | `src/components/LayerPanel.tsx` | Tree UI and drag and drop (dnd-kit) |
 | `src/components/LayerSettings.tsx` | Inline layer settings |
@@ -71,5 +72,6 @@ In the GitHub repository, go to *Settings → Secrets and variables → Actions*
 - **ClickHouse** runs your `SELECT` against the [HTTP interface](https://clickhouse.com/docs/interfaces/http) (`?query=...FORMAT JSON`); username/password go in `X-ClickHouse-User` / `X-ClickHouse-Key` headers, not the URL. The result rows are interpreted exactly like the deck.gl layer you pick as *Render as* — e.g. a `lon`/`lat` (or `lng`/`latitude`/`x`/`y`) column pair for Scatterplot/Hexagon/Heatmap, a `path` array for Path, `from`/`to` for Arc. Rows share the same click-to-inspect popup as WFS features.
 - Data only loads when a layer is first shown, and layers with the same source (and, for ClickHouse, the same render kind) share one download.
 - The browser fetches services directly, so they must send CORS headers (ClickHouse: `add_http_cors_header` in its config, or a reverse proxy in front of it). Otherwise you'll see "Network or CORS error"; put the service behind a proxy in that case.
+- **Data filter**: every non-WMS layer can enable deck.gl's [`DataFilterExtension`](https://deck.gl/docs/api-reference/extensions/data-filter-extension) to hide rows on the GPU. `getFilterValue(properties)` is a JS function body you write (an implicit `return` is added for a bare expression); it runs per row — `properties` is that row's/feature's properties — and must return a number. Rows whose value falls inside the Min–Max range are shown, the rest are hidden; *Set range from data* runs it over the loaded rows to suggest one. The extension is attached to every vector layer from creation and switched on/off with its own `filterEnabled` prop, because deck.gl only wires an extension's GPU attribute up when a layer is first created — adding `extensions` in a later props update on the same layer id is silently ignored.
 
 Demo data: [deck.gl-data](https://github.com/visgl/deck.gl-data) (BART, SF bike parking), terrestris OSM WMS, and IGN Géoplateforme WFS (French regions).

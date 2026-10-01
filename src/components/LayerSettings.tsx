@@ -1,9 +1,10 @@
-import type { Dispatch } from 'react';
+import { useState, type Dispatch } from 'react';
 import { DECK_KINDS, KINDS } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
+import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER } from '../layerExtensions';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../ogc';
-import type { ClickHouseParams, DeckLayerKind, LayerNode, WfsParams, WmsParams } from '../types';
+import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, WfsParams, WmsParams } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
 interface Props {
@@ -24,6 +25,9 @@ export function LayerSettings({ layer, dispatch, depth }: Props) {
   const setWfs = (patch: Partial<WfsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wfs: { ...layer.wfs!, ...patch } } });
   const setClickhouse = (patch: Partial<ClickHouseParams>) =>
     dispatch({ type: 'update', id: layer.id, patch: { clickhouse: { ...layer.clickhouse!, ...patch } } });
+  const setDataFilter = (patch: Partial<DataFilterConfig>) =>
+    dispatch({ type: 'update', id: layer.id, patch: { dataFilter: { ...(layer.dataFilter ?? DEFAULT_DATA_FILTER), ...patch } } });
+  const [filterError, setFilterError] = useState(() => (layer.dataFilter ? compileFilterValue(layer.dataFilter.getFilterValue).error : undefined));
 
   return (
     <div className="settings" style={{ marginLeft: 28 + depth * 18 }}>
@@ -182,6 +186,69 @@ export function LayerSettings({ layer, dispatch, depth }: Props) {
               />
             </label>
           </div>
+        </>
+      )}
+
+      {layer.kind !== 'wms' && (
+        <>
+          <label className="check">
+            <input type="checkbox" checked={layer.dataFilter?.enabled ?? false} onChange={(e) => setDataFilter({ enabled: e.target.checked })} />
+            Data filter (DataFilterExtension)
+          </label>
+          {layer.dataFilter?.enabled && (
+            <>
+              <label className="field">
+                <span>getFilterValue(properties)</span>
+                <textarea
+                  rows={3}
+                  defaultValue={layer.dataFilter.getFilterValue}
+                  key={layer.dataFilter.getFilterValue}
+                  onBlur={(e) => {
+                    const code = e.currentTarget.value;
+                    setFilterError(compileFilterValue(code).error);
+                    if (code !== layer.dataFilter!.getFilterValue) setDataFilter({ getFilterValue: code });
+                  }}
+                />
+              </label>
+              {filterError && <div className="error-box">getFilterValue error (every row scores 0 until fixed): {filterError}</div>}
+              <div className="field-row">
+                <label className="field narrow">
+                  <span>Min</span>
+                  <input
+                    type="number"
+                    value={layer.dataFilter.filterRange[0]}
+                    onChange={(e) => setDataFilter({ filterRange: [+e.target.value, layer.dataFilter!.filterRange[1]] })}
+                  />
+                </label>
+                <label className="field narrow">
+                  <span>Max</span>
+                  <input
+                    type="number"
+                    value={layer.dataFilter.filterRange[1]}
+                    onChange={(e) => setDataFilter({ filterRange: [layer.dataFilter!.filterRange[0], +e.target.value] })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={state?.status !== 'ready'}
+                  title={state?.status !== 'ready' ? 'Data is still loading' : 'Run getFilterValue over the loaded rows and use their min/max as the range'}
+                  onClick={() => {
+                    if (state?.status !== 'ready') return;
+                    const { fn, error } = compileFilterValue(layer.dataFilter!.getFilterValue);
+                    setFilterError(error);
+                    const range = computeFilterRange(state.loaded, fn);
+                    if (range) setDataFilter({ filterRange: range });
+                  }}
+                >
+                  Set range from data
+                </button>
+              </div>
+              <p className="muted hint">
+                Runs once per row; <code>properties</code> is the row's/feature's properties. Must return a number — rows outside Min–Max are hidden.
+              </p>
+            </>
+          )}
         </>
       )}
 

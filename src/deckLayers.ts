@@ -3,6 +3,7 @@ import { ArcLayer, BitmapLayer, GeoJsonLayer, PathLayer, ScatterplotLayer } from
 import { TileLayer, type TileLayerProps } from '@deck.gl/geo-layers';
 import { HeatmapLayer, HexagonLayer } from '@deck.gl/aggregation-layers';
 import { dataStore } from './data';
+import { dataFilterExtensionProps } from './layerExtensions';
 import { fetchWmsImage, wmsGetMapUrl } from './ogc';
 import type { Bounds, DeckLayerKind, LayerNode, LayerStyle } from './types';
 
@@ -95,7 +96,14 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
   if (state?.status !== 'ready') return null;
   const { loaded } = state;
   const rgb = hexToRgb(style.color);
-  const common = { id: node.id, opacity: style.opacity, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 120] as RGBA };
+  const common = {
+    id: node.id,
+    opacity: style.opacity,
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 255, 120] as RGBA,
+    ...dataFilterExtensionProps(node.dataFilter),
+  };
 
   switch (loaded.shape) {
     case 'geojson':
