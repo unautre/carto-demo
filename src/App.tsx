@@ -7,7 +7,7 @@ import { WidgetsPanel } from './components/WidgetsPanel';
 import type { QueryTemplateContext } from './clickhouse';
 import { dataStore, unionBounds, useDataStoreVersion } from './data';
 import { clickInfoKinds, createFeatureInfoWidget } from './featureInfo';
-import { basemapLayer, BASEMAPS, toDeckLayer, type BasemapId } from './deckLayers';
+import { basemapLayer, toDeckLayer } from './deckLayers';
 import { useAppState } from './state';
 import { allLayers, renderOrder } from './tree';
 import { DEFAULT_TIMELINE_CONFIG, WIDGET_KIND_ORDER, WIDGET_KINDS } from './widgetCatalog';
@@ -155,7 +155,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <LayerPanel tree={tree} dispatch={dispatch} onZoomTo={zoomTo} onAddLayer={() => setAdding(true)} timestamp={timestamp} />
+      <LayerPanel tree={tree} dispatch={dispatch} onZoomTo={zoomTo} onAddLayer={() => setAdding(true)} timestamp={timestamp} basemap={basemap} />
       <main className="map" ref={mapRef}>
         <DeckGL
           viewState={viewState}
@@ -166,15 +166,8 @@ export default function App() {
           widgets={widgets}
           onClick={(i) => console.log('DBG deck onClick', i.layer?.id)}
         />
-        <div className="basemap-picker">
-          {(Object.keys(BASEMAPS) as BasemapId[]).map((id) => (
-            <button key={id} className={basemap === id ? 'active' : ''} onClick={() => dispatch({ type: 'setBasemap', basemap: id })}>
-              {BASEMAPS[id].label}
-            </button>
-          ))}
-        </div>
         <WidgetsPanel settings={widgetSettings} dispatch={dispatch} />
-        <div className="attribution">{BASEMAPS[basemap]?.attribution}</div>
+        <div className="attribution">{basemap.enabled ? basemap.attribution : ''}</div>
         {notice && <div className="toast">{notice}</div>}
         <button
           className="btn reset"

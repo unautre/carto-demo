@@ -7,7 +7,7 @@ import { hexToRgb, type RGB, type RGBA } from './colors';
 import { dataStore } from './data';
 import { dataFilterExtensionProps, type DataFilterContext } from './layerExtensions';
 import { fetchWmsImage, wmsGetMapUrl } from './ogc';
-import type { Bounds, DeckLayerKind, LayerNode, LayerStyle, PropertyValue } from './types';
+import type { BasemapConfig, Bounds, DeckLayerKind, LayerNode, LayerStyle, PropertyValue } from './types';
 
 /** Light-to-strong ramp from the layer colour, used by aggregation layers. */
 function colorRamp(hex: string): RGB[] {
@@ -19,18 +19,13 @@ function colorRamp(hex: string): RGB[] {
   ]);
 }
 
-const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
-const ESRI_ATTRIBUTION = 'Tiles © Esri';
-
-/** Keyless, CORS-enabled raster basemaps. */
-export const BASEMAPS = {
-  light: { label: 'Light', url: `${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, maxZoom: 16, attribution: `${ESRI_ATTRIBUTION} — Esri, HERE, Garmin, © OpenStreetMap contributors` },
-  dark: { label: 'Dark', url: `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, maxZoom: 16, attribution: `${ESRI_ATTRIBUTION} — Esri, HERE, Garmin, © OpenStreetMap contributors` },
-  osm: { label: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19, attribution: '© OpenStreetMap contributors' },
-  imagery: { label: 'Imagery', url: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, maxZoom: 19, attribution: `${ESRI_ATTRIBUTION} — Esri, Maxar, Earthstar Geographics` },
-  none: { label: 'None', url: '', maxZoom: 0, attribution: '' },
-} as const;
-export type BasemapId = keyof typeof BASEMAPS;
+/** A configurable basemap defaults to OpenStreetMap's own (keyless, CORS-enabled) tile server. */
+export const DEFAULT_BASEMAP: BasemapConfig = {
+  enabled: true,
+  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  maxZoom: 19,
+  attribution: '© OpenStreetMap contributors',
+};
 
 type TileBBox = { west: number; south: number; east: number; north: number };
 
@@ -42,14 +37,25 @@ function bitmapTile(props: SubLayerProps) {
   return new BitmapLayer(rest, { image: data, bounds: [west, south, east, north] });
 }
 
-export function basemapLayer(id: BasemapId): Layer | null {
-  const { url, maxZoom } = BASEMAPS[id];
-  if (!url) return null;
+/** Upgrades a saved basemap value — the old `BasemapId` string preset, a corrupt object, or missing — to a `BasemapConfig`. */
+export function normalizeBasemap(raw: unknown): BasemapConfig {
+  if (typeof raw === 'string') return raw === 'none' ? { ...DEFAULT_BASEMAP, enabled: false } : DEFAULT_BASEMAP;
+  const c = (raw ?? {}) as Partial<BasemapConfig>;
+  return {
+    enabled: typeof c.enabled === 'boolean' ? c.enabled : DEFAULT_BASEMAP.enabled,
+    url: typeof c.url === 'string' && c.url.trim() ? c.url : DEFAULT_BASEMAP.url,
+    maxZoom: typeof c.maxZoom === 'number' && Number.isFinite(c.maxZoom) && c.maxZoom > 0 ? c.maxZoom : DEFAULT_BASEMAP.maxZoom,
+    attribution: typeof c.attribution === 'string' ? c.attribution : DEFAULT_BASEMAP.attribution,
+  };
+}
+
+export function basemapLayer(config: BasemapConfig): Layer | null {
+  if (!config.enabled || !config.url.trim()) return null;
   return new TileLayer<ImageBitmap | string>({
-    id: `basemap-${id}`,
-    data: url,
+    id: 'basemap',
+    data: config.url,
     minZoom: 0,
-    maxZoom,
+    maxZoom: config.maxZoom,
     tileSize: 256,
     renderSubLayers: bitmapTile,
   });

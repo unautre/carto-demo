@@ -123,6 +123,15 @@ export interface DropTarget {
   position: DropPosition;
 }
 
+export interface BasemapConfig {
+  enabled: boolean;
+  /** XYZ tile URL template, e.g. "https://tile.openstreetmap.org/{z}/{x}/{y}.png" */
+  url: string;
+  maxZoom: number;
+  /** shown bottom-right of the map */
+  attribution: string;
+}
+
 export type WidgetKind = 'zoom' | 'compass' | 'resetView' | 'gimbal' | 'fullscreen' | 'screenshot' | 'theme' | 'loading' | 'scale' | 'timeline';
 
 export interface TimelineConfig {

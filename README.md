@@ -12,7 +12,7 @@ A small web app: a deck.gl map with a side panel to manage layers.
   - Like most GIS tools, **the top of the list is drawn on top**.
 - **Per-layer settings** (⚙): opacity, colour, radius or line width — each either a fixed value or a per-row JS accessor you write — data or service URL, WMS layers/format/version, WFS type/max features/axis swap/output format, ClickHouse query/render kind/database/credentials, a **data filter** (deck.gl's `DataFilterExtension`, with a JS `getFilterValue` you write and a manual or Timeline-relative range), and Reload.
 - **Zoom to** (⌖) a layer or a whole group. Rename a layer or group by double-clicking its name.
-- Basemap switcher (Esri Light/Dark Gray, OpenStreetMap, Esri Imagery, none). The layer tree is saved to `localStorage`, and **Reset demo** brings back the sample layers.
+- **Basemap**: a row at the top of the layer tree, styled like a layer — a checkbox to show/hide it and a ⚙ to configure its tile URL (any raster XYZ `{z}/{x}/{y}` server), max zoom and attribution. Defaults to OpenStreetMap's own tiles. The layer tree is saved to `localStorage`, and **Reset demo** brings back the sample layers (and the default basemap).
 - **Widgets**: the *Widgets* button (top right) toggles deck.gl's own map-chrome widgets on and off — Zoom, Compass, Reset view, Gimbal, Fullscreen, Screenshot, Widget theme (light/dark), Loading indicator, Scale bar — each with its own corner placement. Settings are saved to `localStorage` like everything else.
 
 ## Run
@@ -67,6 +67,7 @@ In the GitHub repository, go to *Settings → Secrets and variables → Actions*
 | `src/widgetCatalog.ts` | Catalog of addable deck.gl widgets (label/icon/default placement/factory) |
 | `src/deckLayers.ts` | Tree node → deck.gl layer; basemaps |
 | `src/components/LayerPanel.tsx` | Tree UI and drag and drop (dnd-kit) |
+| `src/components/BasemapSettings.tsx` | The basemap's row + inline settings (URL/max zoom/attribution), at the top of the layer tree |
 | `src/components/LayerSettings.tsx` | Inline layer settings |
 | `src/components/AddLayerDialog.tsx` | Add-layer dialog (deck.gl / WMS / WFS / ClickHouse) |
 | `src/components/WidgetsPanel.tsx` | Widgets dropdown (enable + corner placement) |

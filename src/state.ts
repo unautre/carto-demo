@@ -1,14 +1,14 @@
 import { useEffect, useReducer } from 'react';
 import type { WidgetPlacement } from '@deck.gl/core';
 import { defaultTree, makeGroup, normalizeTree } from './catalog';
-import { BASEMAPS, type BasemapId } from './deckLayers';
+import { DEFAULT_BASEMAP, normalizeBasemap } from './deckLayers';
 import { findNode, moveNode, removeNode, setAllVisible, ungroup, updateNode } from './tree';
 import { DEFAULT_TIMELINE_CONFIG, defaultWidgetSettings, withWidgetDefaults } from './widgetCatalog';
-import type { DropPosition, LayerNode, TimelineConfig, TreeNode, WidgetKind, WidgetSettings } from './types';
+import type { BasemapConfig, DropPosition, LayerNode, TimelineConfig, TreeNode, WidgetKind, WidgetSettings } from './types';
 
 export interface AppState {
   tree: TreeNode[];
-  basemap: BasemapId;
+  basemap: BasemapConfig;
   widgets: WidgetSettings;
 }
 
@@ -23,7 +23,7 @@ export type Action =
   | { type: 'move'; id: string; targetId: string; position: DropPosition }
   | { type: 'setAllVisible'; visible: boolean }
   | { type: 'setChildrenVisible'; id: string; visible: boolean }
-  | { type: 'setBasemap'; basemap: BasemapId }
+  | { type: 'setBasemap'; patch: Partial<BasemapConfig> }
   | { type: 'toggleWidget'; kind: WidgetKind }
   | { type: 'setWidgetPlacement'; kind: WidgetKind; placement: WidgetPlacement }
   | { type: 'setTimelineConfig'; patch: Partial<TimelineConfig> }
@@ -63,7 +63,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, tree: updateNode(tree, action.id, patch) };
     }
     case 'setBasemap':
-      return { ...state, basemap: action.basemap };
+      return { ...state, basemap: { ...state.basemap, ...action.patch } };
     case 'toggleWidget': {
       const w = state.widgets[action.kind];
       return { ...state, widgets: { ...state.widgets, [action.kind]: { ...w, enabled: !w.enabled } } };
@@ -76,7 +76,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, widgets: { ...state.widgets, timeline: { ...w, timeline } } };
     }
     case 'reset':
-      return { tree: defaultTree(), basemap: 'light', widgets: defaultWidgetSettings() };
+      return { tree: defaultTree(), basemap: DEFAULT_BASEMAP, widgets: defaultWidgetSettings() };
   }
 }
 
@@ -90,7 +90,7 @@ function loadInitial(): AppState {
       if (Array.isArray(parsed.tree)) {
         return {
           tree: normalizeTree(parsed.tree),
-          basemap: parsed.basemap in BASEMAPS ? parsed.basemap : 'light',
+          basemap: normalizeBasemap(parsed.basemap),
           widgets: withWidgetDefaults(parsed.widgets),
         };
       }
@@ -98,7 +98,7 @@ function loadInitial(): AppState {
   } catch {
     // storage unavailable or corrupt: fall back to defaults
   }
-  return { tree: defaultTree(), basemap: 'light', widgets: defaultWidgetSettings() };
+  return { tree: defaultTree(), basemap: DEFAULT_BASEMAP, widgets: defaultWidgetSettings() };
 }
 
 export function useAppState() {

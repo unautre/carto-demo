@@ -16,7 +16,8 @@ import { KINDS } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
 import type { Action } from '../state';
 import { allLayers, descendantState, findNode, isSelfOrDescendant, ROOT_END } from '../tree';
-import type { DropTarget, GroupNode, LayerNode, TreeNode } from '../types';
+import type { BasemapConfig, DropTarget, GroupNode, LayerNode, TreeNode } from '../types';
+import { BasemapSettings } from './BasemapSettings';
 import { LayerSettings } from './LayerSettings';
 
 interface PanelCtx {
@@ -38,9 +39,10 @@ interface Props {
   onZoomTo: (node: TreeNode) => void;
   onAddLayer: () => void;
   timestamp: number;
+  basemap: BasemapConfig;
 }
 
-export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp }: Props) {
+export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp, basemap }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [openSettings, setOpenSettings] = useState<string | null>(null);
@@ -104,6 +106,8 @@ export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp }: 
             <button className="btn ghost" title="Uncheck every layer and group" onClick={() => dispatch({ type: 'setAllVisible', visible: false })}>None</button>
           </div>
         </header>
+
+        <BasemapSettings basemap={basemap} dispatch={dispatch} />
 
         <DndContext
           sensors={sensors}
