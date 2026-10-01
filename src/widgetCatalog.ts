@@ -15,10 +15,17 @@ import type { TimelineConfig, WidgetConfig, WidgetKind, WidgetSettings } from '.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Fixed at module load, not "now" at render time: a stable, reasonable default range for the slider. */
+/**
+ * Fixed at module load, not "now" at render time: a stable, reasonable default range for the
+ * slider. step/playInterval default to playing through the whole default (24h) range in 24
+ * real seconds — deck.gl's own default (step: 1ms, playInterval: 1000ms) is 1ms of simulated
+ * time per real second, i.e. visually frozen.
+ */
 export const DEFAULT_TIMELINE_CONFIG: TimelineConfig = {
   timeRange: [Date.now() - DAY_MS, Date.now()],
   autoPlay: false,
+  step: 60 * 60 * 1000,
+  playInterval: 1000,
 };
 
 /** Extra context a widget's factory may need beyond its placement. */
@@ -104,6 +111,8 @@ export const WIDGET_KINDS: Record<WidgetKind, WidgetKindInfo> = {
         placement,
         time: t.time,
         timeRange: t.timeRange,
+        step: t.step,
+        playInterval: t.playInterval,
         autoPlay: t.autoPlay,
         loop: t.autoPlay,
         onTimeChange: t.onTimeChange,
@@ -137,7 +146,13 @@ function isValidTimelineConfig(t: unknown): t is TimelineConfig {
     Array.isArray(c.timeRange) &&
     c.timeRange.length === 2 &&
     c.timeRange.every((n) => typeof n === 'number' && Number.isFinite(n)) &&
-    typeof c.autoPlay === 'boolean'
+    typeof c.autoPlay === 'boolean' &&
+    typeof c.step === 'number' &&
+    Number.isFinite(c.step) &&
+    c.step > 0 &&
+    typeof c.playInterval === 'number' &&
+    Number.isFinite(c.playInterval) &&
+    c.playInterval > 0
   );
 }
 

@@ -38,6 +38,24 @@ describe('withWidgetDefaults', () => {
     const settings = withWidgetDefaults({ zoom: { enabled: true, placement: 'middle' } });
     expect(settings.zoom).toEqual(defaultWidgetSettings().zoom);
   });
+
+  it('keeps a saved Timeline config with valid step/playInterval', () => {
+    const timeline = { timeRange: [0, 1000] as [number, number], autoPlay: true, step: 10, playInterval: 50 };
+    const settings = withWidgetDefaults({ timeline: { enabled: true, placement: 'fill', timeline } });
+    expect(settings.timeline.timeline).toEqual(timeline);
+  });
+
+  it('falls back to the default Timeline config when step/playInterval are missing or non-positive (older/corrupt save)', () => {
+    for (const bad of [
+      { timeRange: [0, 1000], autoPlay: false }, // pre-step/playInterval save
+      { timeRange: [0, 1000], autoPlay: false, step: 0, playInterval: 50 },
+      { timeRange: [0, 1000], autoPlay: false, step: 10, playInterval: -1 },
+    ]) {
+      // @ts-expect-error intentionally incomplete/invalid, as if from an older/corrupt localStorage blob
+      const settings = withWidgetDefaults({ timeline: { enabled: true, placement: 'fill', timeline: bad } });
+      expect(settings.timeline.timeline).toEqual(DEFAULT_TIMELINE_CONFIG);
+    }
+  });
 });
 
 describe('WIDGET_KINDS catalog', () => {
@@ -50,5 +68,14 @@ describe('WIDGET_KINDS catalog', () => {
       });
       expect(widget.placement).toBe(info.defaultPlacement);
     }
+  });
+
+  it('passes a configured step/playInterval through to the Timeline widget', () => {
+    const widget = WIDGET_KINDS.timeline.create('fill', {
+      initialViewState: { longitude: 0, latitude: 0, zoom: 1 },
+      timeline: { ...DEFAULT_TIMELINE_CONFIG, step: 5000, playInterval: 200, time: DEFAULT_TIMELINE_CONFIG.timeRange[1], onTimeChange: () => {} },
+    });
+    expect((widget.props as unknown as { step: number }).step).toBe(5000);
+    expect((widget.props as unknown as { playInterval: number }).playInterval).toBe(200);
   });
 });

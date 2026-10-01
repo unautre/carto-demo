@@ -108,6 +108,10 @@ export interface TimelineConfig {
   /** [min, max] epoch-ms bounds for the slider */
   timeRange: [number, number];
   autoPlay: boolean;
+  /** ms the slider advances by on each auto-play tick (or arrow-key press) */
+  step: number;
+  /** ms of real time between auto-play ticks; together with `step`, sets play speed */
+  playInterval: number;
 }
 
 export interface WidgetConfig {

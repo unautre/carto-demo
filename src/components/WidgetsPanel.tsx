@@ -107,6 +107,17 @@ function TimelineSettings({ timeline, dispatch }: { timeline: TimelineConfig; di
           />
         </label>
       </div>
+      <div className="field-row">
+        <label className="field narrow">
+          <span>Step (ms)</span>
+          <input type="number" min={1} value={timeline.step} onChange={(e) => set({ step: Math.max(1, +e.target.value || 1) })} />
+        </label>
+        <label className="field narrow">
+          <span>Interval (ms)</span>
+          <input type="number" min={1} value={timeline.playInterval} onChange={(e) => set({ playInterval: Math.max(1, +e.target.value || 1) })} />
+        </label>
+      </div>
+      <p className="muted hint">Auto-play advances the slider by Step every Interval ms of real time — together, the play speed.</p>
       <label className="check">
         <input type="checkbox" checked={timeline.autoPlay} onChange={(e) => set({ autoPlay: e.target.checked })} />
         Auto-play (loops over the range)
