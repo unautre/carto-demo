@@ -5,7 +5,7 @@ import { dataStore } from './data';
 import type { ClickHouseParams, LayerNode } from './types';
 
 const T = 1_700_000_000_000;
-const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000 };
+const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000, bboxWest: -10, bboxSouth: -5, bboxEast: 10, bboxNorth: 5 };
 
 const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): LayerNode => ({
   type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', url,
@@ -33,6 +33,14 @@ describe('interpolateQuery', () => {
 
   it("doesn't collide with ClickHouse's own {name:Type} parameter syntax", () => {
     expect(interpolateQuery('SELECT {limit:UInt32} LIMIT {{timestamp}}', CTX)).toBe(`SELECT {limit:UInt32} LIMIT ${CTX.timestamp}`);
+  });
+
+  it('replaces the four bbox placeholders with the viewport extent', () => {
+    const sql = interpolateQuery(
+      'WHERE lon BETWEEN {{bboxWest}} AND {{bboxEast}} AND lat BETWEEN {{bboxSouth}} AND {{bboxNorth}}',
+      CTX,
+    );
+    expect(sql).toBe(`WHERE lon BETWEEN ${CTX.bboxWest} AND ${CTX.bboxEast} AND lat BETWEEN ${CTX.bboxSouth} AND ${CTX.bboxNorth}`);
   });
 });
 

@@ -224,8 +224,19 @@ class DataStore {
     this.emit();
   }
 
-  /** `ctx` only matters for ClickHouse layers (resolves `{{timestamp}}` etc.); defaults to "now" when omitted. */
-  load(layer: LayerNode, ctx: QueryTemplateContext = { timestamp: Date.now(), timeRangeStart: Date.now(), timeRangeEnd: Date.now() }): Promise<DataState> {
+  /** `ctx` only matters for ClickHouse layers (resolves `{{timestamp}}` etc.); defaults to "now"/whole-world when omitted. */
+  load(
+    layer: LayerNode,
+    ctx: QueryTemplateContext = {
+      timestamp: Date.now(),
+      timeRangeStart: Date.now(),
+      timeRangeEnd: Date.now(),
+      bboxWest: -180,
+      bboxSouth: -90,
+      bboxEast: 180,
+      bboxNorth: 90,
+    },
+  ): Promise<DataState> {
     const key = dataKey(layer);
     if (!key) return Promise.resolve({ status: 'error', error: 'WMS layers load as tiles' });
     const existing = this.states.get(key);

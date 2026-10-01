@@ -323,7 +323,9 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
       </label>
       <p className="muted hint">
         <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
-        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".
+        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".{' '}
+        <code>{'{{bboxWest}}'}</code>, <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> are
+        replaced with the map's current extent in degrees.
       </p>
       <div className="field-row">
         <button type="button" className="btn" onClick={test} disabled={testing || !url.trim() || !query.trim()}>

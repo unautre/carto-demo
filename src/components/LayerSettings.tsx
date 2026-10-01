@@ -163,7 +163,9 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
           </label>
           <p className="muted hint">
             <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers —
-            the Timeline widget's position/range if one's enabled, else all three are "now". Re-resolved on Reload, not live.
+            the Timeline widget's position/range if one's enabled, else all three are "now". <code>{'{{bboxWest}}'}</code>,{' '}
+            <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> resolve to the map's current extent
+            in degrees. Re-resolved on Reload, not live.
           </p>
           <div className="field-row">
             <label className="field">

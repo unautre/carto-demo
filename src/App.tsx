@@ -58,14 +58,27 @@ export default function App() {
   );
   // `{{timeRangeStart}}` / `{{timeRangeEnd}}` in a ClickHouse query: the timeline's own range when
   // it's enabled, else both collapse to `timestamp` (consistent with "no timeline = just now").
-  const queryCtx: QueryTemplateContext = useMemo(
-    () => ({
+  // `{{bboxWest/South/East/North}}`: the map viewport's current extent. Read from `viewState`
+  // directly (not debounced/throttled) — like `timestamp`, this is a snapshot resolved only when a
+  // query actually runs (first load, *Test query*, *Reload*), not a live-updating filter, so
+  // recomputing it on every pan/zoom frame is cheap and doesn't itself trigger any refetch.
+  const queryCtx: QueryTemplateContext = useMemo(() => {
+    const el = mapRef.current;
+    const [bboxWest, bboxSouth, bboxEast, bboxNorth] = new WebMercatorViewport({
+      ...viewState,
+      width: el?.clientWidth ?? 800,
+      height: el?.clientHeight ?? 600,
+    }).getBounds();
+    return {
       timestamp,
       timeRangeStart: timelineSettings.enabled ? timelineConfig.timeRange[0] : timestamp,
       timeRangeEnd: timelineSettings.enabled ? timelineConfig.timeRange[1] : timestamp,
-    }),
-    [timestamp, timelineSettings.enabled, timelineConfig.timeRange],
-  );
+      bboxWest,
+      bboxSouth,
+      bboxEast,
+      bboxNorth,
+    };
+  }, [timestamp, timelineSettings.enabled, timelineConfig.timeRange, viewState]);
 
   // Load data for layers as soon as they are shown; hidden layers cost nothing. Re-running this
   // when queryCtx changes does NOT refetch already-loaded ClickHouse layers on every timeline tick
