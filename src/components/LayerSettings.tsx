@@ -1,10 +1,11 @@
 import { useState, type Dispatch } from 'react';
 import { DECK_KINDS, KINDS } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
+import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../ogc';
-import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, WfsParams, WmsParams } from '../types';
+import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, TimeUnit, WfsParams, WmsParams } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
 interface Props {
@@ -265,15 +266,26 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
                 </div>
               ) : (
                 <>
-                  <label className="field narrow">
-                    <span>Delay (ms)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={layer.dataFilter.delay}
-                      onChange={(e) => setDataFilter({ delay: Math.max(0, +e.target.value) })}
-                    />
-                  </label>
+                  <div className="field-row">
+                    <label className="field narrow">
+                      <span>Delay</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={layer.dataFilter.delay.value}
+                        onChange={(e) => setDataFilter({ delay: { ...layer.dataFilter!.delay, value: Math.max(0, +e.target.value || 0) } })}
+                      />
+                    </label>
+                    <label className="field narrow">
+                      <span>Unit</span>
+                      <select
+                        value={layer.dataFilter.delay.unit}
+                        onChange={(e) => setDataFilter({ delay: { ...layer.dataFilter!.delay, unit: e.target.value as TimeUnit } })}
+                      >
+                        {UNIT_ORDER.map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
+                      </select>
+                    </label>
+                  </div>
                   <p className="muted hint">
                     Shows rows from <code>timestamp − delay</code> to <code>timestamp</code>, where <code>timestamp</code> is the Timeline widget's
                     position (or "now" if it's off). Currently{' '}

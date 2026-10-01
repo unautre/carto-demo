@@ -11,9 +11,8 @@ import {
   _ScaleWidget as ScaleWidget,
   _TimelineWidget as TimelineWidget,
 } from '@deck.gl/widgets';
+import { durationMs, isValidDuration, UNIT_MS } from './duration';
 import type { TimelineConfig, WidgetConfig, WidgetKind, WidgetSettings } from './types';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Fixed at module load, not "now" at render time: a stable, reasonable default range for the
@@ -22,9 +21,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * time per real second, i.e. visually frozen.
  */
 export const DEFAULT_TIMELINE_CONFIG: TimelineConfig = {
-  timeRange: [Date.now() - DAY_MS, Date.now()],
+  timeRange: [Date.now() - UNIT_MS.days, Date.now()],
   autoPlay: false,
-  step: 60 * 60 * 1000,
+  step: { value: 1, unit: 'hours' },
   playInterval: 1000,
 };
 
@@ -111,7 +110,7 @@ export const WIDGET_KINDS: Record<WidgetKind, WidgetKindInfo> = {
         placement,
         time: t.time,
         timeRange: t.timeRange,
-        step: t.step,
+        step: durationMs(t.step),
         playInterval: t.playInterval,
         autoPlay: t.autoPlay,
         loop: t.autoPlay,
@@ -147,9 +146,7 @@ function isValidTimelineConfig(t: unknown): t is TimelineConfig {
     c.timeRange.length === 2 &&
     c.timeRange.every((n) => typeof n === 'number' && Number.isFinite(n)) &&
     typeof c.autoPlay === 'boolean' &&
-    typeof c.step === 'number' &&
-    Number.isFinite(c.step) &&
-    c.step > 0 &&
+    isValidDuration(c.step) &&
     typeof c.playInterval === 'number' &&
     Number.isFinite(c.playInterval) &&
     c.playInterval > 0

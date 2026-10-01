@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type Dispatch } from 'react';
 import type { WidgetPlacement } from '@deck.gl/core';
+import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { DEFAULT_TIMELINE_CONFIG, PLACEMENTS, WIDGET_KIND_ORDER, WIDGET_KINDS } from '../widgetCatalog';
 import type { Action } from '../state';
-import type { TimelineConfig, WidgetSettings } from '../types';
+import type { TimelineConfig, TimeUnit, WidgetSettings } from '../types';
 
 const PLACEMENT_LABEL: Record<WidgetPlacement, string> = {
   'top-left': 'Top left',
@@ -109,9 +110,22 @@ function TimelineSettings({ timeline, dispatch }: { timeline: TimelineConfig; di
       </div>
       <div className="field-row">
         <label className="field narrow">
-          <span>Step (ms)</span>
-          <input type="number" min={1} value={timeline.step} onChange={(e) => set({ step: Math.max(1, +e.target.value || 1) })} />
+          <span>Step</span>
+          <input
+            type="number"
+            min={0}
+            value={timeline.step.value}
+            onChange={(e) => set({ step: { ...timeline.step, value: Math.max(0, +e.target.value || 0) } })}
+          />
         </label>
+        <label className="field narrow">
+          <span>Unit</span>
+          <select value={timeline.step.unit} onChange={(e) => set({ step: { ...timeline.step, unit: e.target.value as TimeUnit } })}>
+            {UNIT_ORDER.map((u) => <option key={u} value={u}>{UNIT_LABEL[u]}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="field-row">
         <label className="field narrow">
           <span>Interval (ms)</span>
           <input type="number" min={1} value={timeline.playInterval} onChange={(e) => set({ playInterval: Math.max(1, +e.target.value || 1) })} />

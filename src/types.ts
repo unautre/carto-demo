@@ -1,5 +1,13 @@
 import type { WidgetPlacement } from '@deck.gl/core';
 
+export type TimeUnit = 'ms' | 'seconds' | 'minutes' | 'hours' | 'days';
+
+/** A user-entered duration, e.g. `{ value: 2, unit: 'hours' }`; convert with `durationMs` (see duration.ts). */
+export interface Duration {
+  value: number;
+  unit: TimeUnit;
+}
+
 export type DeckLayerKind = 'scatterplot' | 'geojson' | 'path' | 'arc' | 'hexagon' | 'heatmap';
 export type LayerKind = DeckLayerKind | 'wms' | 'wfs' | 'clickhouse';
 
@@ -60,8 +68,8 @@ export interface DataFilterConfig {
   mode: 'manual' | 'timeline';
   /** rows whose value falls within [min, max] are shown; others are hidden. Used when `mode` is 'manual'. */
   filterRange: [number, number];
-  /** trailing window length in ms. Used when `mode` is 'timeline'. */
-  delay: number;
+  /** trailing window length. Used when `mode` is 'timeline'. */
+  delay: Duration;
 }
 
 export interface LayerNode {
@@ -108,8 +116,8 @@ export interface TimelineConfig {
   /** [min, max] epoch-ms bounds for the slider */
   timeRange: [number, number];
   autoPlay: boolean;
-  /** ms the slider advances by on each auto-play tick (or arrow-key press) */
-  step: number;
+  /** the slider advances by this much on each auto-play tick (or arrow-key press) */
+  step: Duration;
   /** ms of real time between auto-play ticks; together with `step`, sets play speed */
   playInterval: number;
 }

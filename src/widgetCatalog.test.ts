@@ -39,17 +39,19 @@ describe('withWidgetDefaults', () => {
     expect(settings.zoom).toEqual(defaultWidgetSettings().zoom);
   });
 
-  it('keeps a saved Timeline config with valid step/playInterval', () => {
-    const timeline = { timeRange: [0, 1000] as [number, number], autoPlay: true, step: 10, playInterval: 50 };
+  it('keeps a saved Timeline config with a valid step/playInterval', () => {
+    const timeline = { timeRange: [0, 1000] as [number, number], autoPlay: true, step: { value: 10, unit: 'seconds' as const }, playInterval: 50 };
     const settings = withWidgetDefaults({ timeline: { enabled: true, placement: 'fill', timeline } });
     expect(settings.timeline.timeline).toEqual(timeline);
   });
 
-  it('falls back to the default Timeline config when step/playInterval are missing or non-positive (older/corrupt save)', () => {
+  it('falls back to the default Timeline config when step/playInterval are missing or invalid (older/corrupt save)', () => {
     for (const bad of [
       { timeRange: [0, 1000], autoPlay: false }, // pre-step/playInterval save
-      { timeRange: [0, 1000], autoPlay: false, step: 0, playInterval: 50 },
-      { timeRange: [0, 1000], autoPlay: false, step: 10, playInterval: -1 },
+      { timeRange: [0, 1000], autoPlay: false, step: 3600000, playInterval: 1000 }, // pre-Duration save: step was a raw ms number
+      { timeRange: [0, 1000], autoPlay: false, step: { value: 0, unit: 'seconds' }, playInterval: 50 }, // non-positive step value
+      { timeRange: [0, 1000], autoPlay: false, step: { value: 10, unit: 'fortnights' }, playInterval: 50 }, // unknown unit
+      { timeRange: [0, 1000], autoPlay: false, step: { value: 10, unit: 'seconds' }, playInterval: -1 },
     ]) {
       // @ts-expect-error intentionally incomplete/invalid, as if from an older/corrupt localStorage blob
       const settings = withWidgetDefaults({ timeline: { enabled: true, placement: 'fill', timeline: bad } });
@@ -70,10 +72,16 @@ describe('WIDGET_KINDS catalog', () => {
     }
   });
 
-  it('passes a configured step/playInterval through to the Timeline widget', () => {
+  it('converts a configured step Duration to ms, and passes playInterval through, to the Timeline widget', () => {
     const widget = WIDGET_KINDS.timeline.create('fill', {
       initialViewState: { longitude: 0, latitude: 0, zoom: 1 },
-      timeline: { ...DEFAULT_TIMELINE_CONFIG, step: 5000, playInterval: 200, time: DEFAULT_TIMELINE_CONFIG.timeRange[1], onTimeChange: () => {} },
+      timeline: {
+        ...DEFAULT_TIMELINE_CONFIG,
+        step: { value: 5, unit: 'seconds' },
+        playInterval: 200,
+        time: DEFAULT_TIMELINE_CONFIG.timeRange[1],
+        onTimeChange: () => {},
+      },
     });
     expect((widget.props as unknown as { step: number }).step).toBe(5000);
     expect((widget.props as unknown as { playInterval: number }).playInterval).toBe(200);

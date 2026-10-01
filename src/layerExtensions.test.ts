@@ -11,7 +11,7 @@ const manual = (patch: Partial<DataFilterConfig>): DataFilterConfig => ({
   getFilterValue: 'return 1;',
   mode: 'manual',
   filterRange: [0, 1],
-  delay: 1000,
+  delay: { value: 1000, unit: 'ms' },
   ...patch,
 });
 
@@ -95,8 +95,13 @@ describe('resolveFilterRange', () => {
   });
 
   it('computes [timestamp - delay, timestamp] in timeline mode', () => {
-    const config = manual({ mode: 'timeline', delay: 60_000 });
+    const config = manual({ mode: 'timeline', delay: { value: 60_000, unit: 'ms' } });
     expect(resolveFilterRange(config, { timestamp: T })).toEqual([T - 60_000, T]);
+  });
+
+  it('converts non-ms delay units to ms', () => {
+    const config = manual({ mode: 'timeline', delay: { value: 2, unit: 'minutes' } });
+    expect(resolveFilterRange(config, { timestamp: T })).toEqual([T - 120_000, T]);
   });
 });
 
@@ -127,7 +132,7 @@ describe('dataFilterExtensionProps', () => {
   });
 
   it('derives filterRange from timestamp - delay in timeline mode', () => {
-    const props = dataFilterExtensionProps(manual({ mode: 'timeline', delay: 5000 }), { timestamp: T });
+    const props = dataFilterExtensionProps(manual({ mode: 'timeline', delay: { value: 5000, unit: 'ms' } }), { timestamp: T });
     expect(props.filterRange).toEqual([T - 5000, T]);
   });
 
@@ -143,7 +148,7 @@ describe('dataFilterExtensionProps', () => {
     const changedCode = dataFilterExtensionProps(manual({ getFilterValue: 'return 2;' }), ctx);
     const changedRange = dataFilterExtensionProps(manual({ filterRange: [0, 2] }), ctx);
     const disabled = dataFilterExtensionProps(manual({ enabled: false }), ctx);
-    const timelineMode = dataFilterExtensionProps(manual({ mode: 'timeline', delay: 1000 }), { timestamp: T + 1 });
+    const timelineMode = dataFilterExtensionProps(manual({ mode: 'timeline', delay: { value: 1000, unit: 'ms' } }), { timestamp: T + 1 });
 
     expect(changedCode.updateTriggers.getFilterValue).not.toEqual(base.updateTriggers.getFilterValue);
     expect(changedRange.updateTriggers.getFilterValue).not.toEqual(base.updateTriggers.getFilterValue);

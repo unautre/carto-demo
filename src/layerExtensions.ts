@@ -1,16 +1,15 @@
 import type { LayerExtension } from '@deck.gl/core';
 import { DataFilterExtension } from '@deck.gl/extensions';
 import type { LoadedData } from './data';
+import { durationMs } from './duration';
 import type { DataFilterConfig } from './types';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const DEFAULT_DATA_FILTER: DataFilterConfig = {
   enabled: true,
   getFilterValue: 'return properties.value ?? 0;',
   mode: 'manual',
   filterRange: [-1, 1],
-  delay: DAY_MS,
+  delay: { value: 1, unit: 'days' },
 };
 
 export interface RowLike {
@@ -110,7 +109,7 @@ export interface DataFilterContext {
 
 /** The [min, max] a filter actually applies right now, given its mode. */
 export function resolveFilterRange(config: DataFilterConfig, ctx: DataFilterContext): [number, number] {
-  return config.mode === 'timeline' ? [ctx.timestamp - config.delay, ctx.timestamp] : config.filterRange;
+  return config.mode === 'timeline' ? [ctx.timestamp - durationMs(config.delay), ctx.timestamp] : config.filterRange;
 }
 
 /** deck.gl layer props that wire up the DataFilterExtension (on every layer, filter on or off). */
