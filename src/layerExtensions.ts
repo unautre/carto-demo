@@ -1,5 +1,6 @@
 import type { LayerExtension } from '@deck.gl/core';
 import { DataFilterExtension } from '@deck.gl/extensions';
+import type { RowLike } from './accessors';
 import type { LoadedData } from './data';
 import { durationMs } from './duration';
 import type { DataFilterConfig } from './types';
@@ -11,10 +12,6 @@ export const DEFAULT_DATA_FILTER: DataFilterConfig = {
   filterRange: [-1, 1],
   delay: { value: 1, unit: 'days' },
 };
-
-export interface RowLike {
-  properties?: Record<string, unknown> | null;
-}
 
 export interface CompiledFilter {
   fn: (d: RowLike) => number;

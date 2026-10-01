@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from 'react';
 import type { WidgetPlacement } from '@deck.gl/core';
-import { defaultTree, makeGroup } from './catalog';
+import { defaultTree, makeGroup, normalizeTree } from './catalog';
 import { BASEMAPS, type BasemapId } from './deckLayers';
 import { findNode, moveNode, removeNode, setAllVisible, ungroup, updateNode } from './tree';
 import { DEFAULT_TIMELINE_CONFIG, defaultWidgetSettings, withWidgetDefaults } from './widgetCatalog';
@@ -89,7 +89,7 @@ function loadInitial(): AppState {
       const parsed = JSON.parse(raw) as AppState;
       if (Array.isArray(parsed.tree)) {
         return {
-          tree: parsed.tree,
+          tree: normalizeTree(parsed.tree),
           basemap: parsed.basemap in BASEMAPS ? parsed.basemap : 'light',
           widgets: withWidgetDefaults(parsed.widgets),
         };

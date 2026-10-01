@@ -1,12 +1,96 @@
 import { useState, type Dispatch } from 'react';
+import { colorPropertyError, numberPropertyError } from '../accessors';
 import { DECK_KINDS, KINDS } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
 import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../ogc';
-import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, TimeUnit, WfsParams, WmsParams } from '../types';
+import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
+
+function PropertyModeSelect({ mode, onChange }: { mode: PropertyMode; onChange: (mode: PropertyMode) => void }) {
+  return (
+    <select value={mode} onChange={(e) => onChange(e.target.value as PropertyMode)}>
+      <option value="constant">Value</option>
+      <option value="accessor">Accessor</option>
+    </select>
+  );
+}
+
+interface NumberPropertyFieldProps {
+  label: string;
+  prop: PropertyValue<number>;
+  accessorCapable: boolean;
+  min: number;
+  max: number;
+  step: number;
+  format?: (v: number) => string;
+  placeholder: string;
+  onChange: (patch: Partial<PropertyValue<number>>) => void;
+}
+
+function NumberPropertyField({ label, prop, accessorCapable, min, max, step, format, placeholder, onChange }: NumberPropertyFieldProps) {
+  const error = numberPropertyError(prop);
+  return (
+    <label className="field">
+      <span className="prop-header">
+        <span>{label}{prop.mode === 'constant' ? ` · ${format ? format(prop.value) : prop.value}` : ''}</span>
+        {accessorCapable && <PropertyModeSelect mode={prop.mode} onChange={(mode) => onChange({ mode })} />}
+      </span>
+      {prop.mode === 'constant' ? (
+        <input type="range" min={min} max={max} step={step} value={prop.value} onChange={(e) => onChange({ value: +e.target.value })} />
+      ) : (
+        <textarea
+          rows={2}
+          defaultValue={prop.code}
+          key={prop.code}
+          placeholder={placeholder}
+          onBlur={(e) => {
+            const code = e.currentTarget.value;
+            if (code !== prop.code) onChange({ code });
+          }}
+        />
+      )}
+      {prop.mode === 'accessor' && error && <span className="error-box">{error}</span>}
+    </label>
+  );
+}
+
+function ColorPropertyField({
+  prop,
+  accessorCapable,
+  onChange,
+}: {
+  prop: PropertyValue<string>;
+  accessorCapable: boolean;
+  onChange: (patch: Partial<PropertyValue<string>>) => void;
+}) {
+  const error = colorPropertyError(prop);
+  return (
+    <label className={`field ${prop.mode === 'constant' ? 'color-field' : ''}`}>
+      <span className="prop-header">
+        <span>Colour</span>
+        {accessorCapable && <PropertyModeSelect mode={prop.mode} onChange={(mode) => onChange({ mode })} />}
+      </span>
+      {prop.mode === 'constant' ? (
+        <input type="color" value={prop.value} onChange={(e) => onChange({ value: e.target.value })} />
+      ) : (
+        <textarea
+          rows={2}
+          defaultValue={prop.code}
+          key={prop.code}
+          placeholder="return properties.value > 0 ? '#e4572e' : '#2e86ab';"
+          onBlur={(e) => {
+            const code = e.currentTarget.value;
+            if (code !== prop.code) onChange({ code });
+          }}
+        />
+      )}
+      {prop.mode === 'accessor' && error && <span className="error-box">{error}</span>}
+    </label>
+  );
+}
 
 interface Props {
   layer: LayerNode;
@@ -23,7 +107,9 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
   const renderKind: DeckLayerKind = layer.kind === 'clickhouse' ? (layer.clickhouse?.render ?? 'scatterplot') : (layer.kind as DeckLayerKind);
   const renderInfo = layer.kind === 'clickhouse' ? KINDS[renderKind] : info;
   const state = dataStore.get(layer);
-  const style = (patch: Partial<LayerNode['style']>) => dispatch({ type: 'updateStyle', id: layer.id, patch });
+  const setProp = <K extends keyof LayerStyle>(key: K, patch: Partial<LayerStyle[K]>) =>
+    dispatch({ type: 'updateStyle', id: layer.id, patch: { [key]: { ...layer.style[key], ...patch } } as Partial<LayerNode['style']> });
+  const accessorCapable = new Set(renderInfo.accessorCapable);
   const setWms = (patch: Partial<WmsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wms: { ...layer.wms!, ...patch } } });
   const setWfs = (patch: Partial<WfsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wfs: { ...layer.wfs!, ...patch } } });
   const setClickhouse = (patch: Partial<ClickHouseParams>) =>
@@ -51,36 +137,45 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
       </label>
 
       <div className="field-row">
-        <label className="field">
-          <span>Opacity {Math.round(layer.style.opacity * 100)}%</span>
-          <input type="range" min={0} max={1} step={0.05} value={layer.style.opacity} onChange={(e) => style({ opacity: +e.target.value })} />
-        </label>
+        <NumberPropertyField
+          label="Opacity"
+          prop={layer.style.opacity}
+          accessorCapable={accessorCapable.has('opacity')}
+          min={0}
+          max={1}
+          step={0.05}
+          format={(v) => `${Math.round(v * 100)}%`}
+          placeholder="return properties.value ?? 1;"
+          onChange={(patch) => setProp('opacity', patch)}
+        />
         {layer.kind !== 'wms' && (
-          <label className="field color-field">
-            <span>Colour</span>
-            <input type="color" value={layer.style.color} onChange={(e) => style({ color: e.target.value })} />
-          </label>
+          <ColorPropertyField prop={layer.style.color} accessorCapable={accessorCapable.has('color')} onChange={(patch) => setProp('color', patch)} />
         )}
       </div>
 
       {renderInfo.controls.includes('radius') && (
-        <label className="field">
-          <span>{renderInfo.radiusLabel} · {layer.style.radius}</span>
-          <input
-            type="range"
-            min={renderKind === 'heatmap' ? 5 : 10}
-            max={renderKind === 'heatmap' ? 100 : 1000}
-            step={renderKind === 'heatmap' ? 1 : 10}
-            value={layer.style.radius}
-            onChange={(e) => style({ radius: +e.target.value })}
-          />
-        </label>
+        <NumberPropertyField
+          label={renderInfo.radiusLabel ?? 'Radius'}
+          prop={layer.style.radius}
+          accessorCapable={accessorCapable.has('radius')}
+          min={renderKind === 'heatmap' ? 5 : 10}
+          max={renderKind === 'heatmap' ? 100 : 1000}
+          step={renderKind === 'heatmap' ? 1 : 10}
+          placeholder="return properties.value ?? 100;"
+          onChange={(patch) => setProp('radius', patch)}
+        />
       )}
       {renderInfo.controls.includes('lineWidth') && (
-        <label className="field">
-          <span>Line width (px) · {layer.style.lineWidth}</span>
-          <input type="range" min={0.5} max={12} step={0.5} value={layer.style.lineWidth} onChange={(e) => style({ lineWidth: +e.target.value })} />
-        </label>
+        <NumberPropertyField
+          label="Line width (px)"
+          prop={layer.style.lineWidth}
+          accessorCapable={accessorCapable.has('lineWidth')}
+          min={0.5}
+          max={12}
+          step={0.5}
+          placeholder="return properties.value ?? 2;"
+          onChange={(patch) => setProp('lineWidth', patch)}
+        />
       )}
 
       {layer.wms && (

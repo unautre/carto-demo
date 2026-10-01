@@ -228,6 +228,8 @@ button, input, select { font: inherit; color: inherit; }
 .color-field { flex: 0 0 auto; }
 .color-field input { width: 44px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; }
 .field-row { display: flex; gap: 10px; align-items: flex-end; }
+.prop-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prop-header select { width: auto; padding: 2px 5px; font-size: 11px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; padding-bottom: 5px; }
 .error-box {
   color: var(--danger);

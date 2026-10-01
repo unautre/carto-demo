@@ -227,7 +227,7 @@ function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
               onChange={() => dispatch({ type: 'toggle', id: layer.id })}
               aria-label={`Show ${layer.name}`}
             />
-            <span className="kind-icon" style={{ color: layer.style.color }} title={info.label}>{info.icon}</span>
+            <span className="kind-icon" style={{ color: layer.style.color.value }} title={info.label}>{info.icon}</span>
             <EditableName node={layer} />
             <span className="kind-tag">{info.label}</span>
             <Status layer={layer} />
@@ -307,7 +307,7 @@ function GroupItem({ group, depth }: { group: GroupNode; depth: number }) {
 
 function DragPreview({ node }: { node: TreeNode }) {
   const icon = node.type === 'group' ? '▤' : KINDS[node.kind].icon;
-  const color = node.type === 'layer' ? node.style.color : undefined;
+  const color = node.type === 'layer' ? node.style.color.value : undefined;
   const extra = node.type === 'group' ? ` · ${allLayers(node.children).length} layers` : '';
   return (
     <div className="drag-preview">

@@ -14,15 +14,28 @@ export type LayerKind = DeckLayerKind | 'wms' | 'wfs' | 'clickhouse';
 /** [west, south, east, north] in degrees */
 export type Bounds = [number, number, number, number];
 
+export type PropertyMode = 'constant' | 'accessor';
+
+/**
+ * A layer style property that's either a fixed `value`, or a per-row JS accessor (`code`, a
+ * function body; `properties` and `d` — the row/feature — are in scope). Both are always kept, so
+ * switching `mode` back and forth in the UI doesn't lose whichever one isn't active.
+ */
+export interface PropertyValue<T> {
+  mode: PropertyMode;
+  value: T;
+  code: string;
+}
+
 export interface LayerStyle {
-  /** hex colour, e.g. "#ff8800" */
-  color: string;
+  /** hex colour, e.g. "#ff8800"; an accessor must return a hex string */
+  color: PropertyValue<string>;
   /** 0..1 */
-  opacity: number;
+  opacity: PropertyValue<number>;
   /** metres for scatterplot / hexagon, pixels for heatmap */
-  radius: number;
+  radius: PropertyValue<number>;
   /** pixels */
-  lineWidth: number;
+  lineWidth: PropertyValue<number>;
 }
 
 export interface WmsParams {

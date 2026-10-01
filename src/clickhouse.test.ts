@@ -7,9 +7,10 @@ import type { ClickHouseParams, LayerNode } from './types';
 const T = 1_700_000_000_000;
 const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000, bboxWest: -10, bboxSouth: -5, bboxEast: 10, bboxNorth: 5 };
 
+const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): LayerNode => ({
   type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', url,
-  style: { color: '#ffc300', opacity: 1, radius: 100, lineWidth: 2 },
+  style: { color: pv('#ffc300'), opacity: pv(1), radius: pv(100), lineWidth: pv(2) },
   clickhouse,
 });
 

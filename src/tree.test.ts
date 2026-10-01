@@ -3,9 +3,10 @@ import { _computeBoundsForTests as computeBounds, _normaliseForTests as normalis
 import { moveNode, renderOrder, ROOT_END, ungroup } from './tree';
 import type { GroupNode, LayerNode, TreeNode } from './types';
 
+const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const layer = (id: string, visible = true): LayerNode => ({
   type: 'layer', id, name: id, visible, kind: 'scatterplot', url: '',
-  style: { color: '#000000', opacity: 1, radius: 1, lineWidth: 1 },
+  style: { color: pv('#000000'), opacity: pv(1), radius: pv(1), lineWidth: pv(1) },
 });
 const group = (id: string, children: TreeNode[], visible = true): GroupNode => ({
   type: 'group', id, name: id, visible, expanded: true, children,

@@ -78,7 +78,7 @@ function DeckForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
       <div className="kind-grid">
         {DECK_KINDS.map((k) => (
           <button type="button" key={k} className={`kind-card ${kind === k ? 'active' : ''}`} onClick={() => pick(k)}>
-            <span className="kind-icon big" style={{ color: KINDS[k].style.color }}>{KINDS[k].icon}</span>
+            <span className="kind-icon big" style={{ color: KINDS[k].style.color.value }}>{KINDS[k].icon}</span>
             {KINDS[k].label}
           </button>
         ))}

@@ -2,22 +2,12 @@ import type { Layer } from '@deck.gl/core';
 import { ArcLayer, BitmapLayer, GeoJsonLayer, PathLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { TileLayer, type TileLayerProps } from '@deck.gl/geo-layers';
 import { HeatmapLayer, HexagonLayer } from '@deck.gl/aggregation-layers';
+import { resolveColorWithAlpha, resolveNumberProperty } from './accessors';
+import { hexToRgb, type RGB, type RGBA } from './colors';
 import { dataStore } from './data';
 import { dataFilterExtensionProps, type DataFilterContext } from './layerExtensions';
 import { fetchWmsImage, wmsGetMapUrl } from './ogc';
-import type { Bounds, DeckLayerKind, LayerNode, LayerStyle } from './types';
-
-type RGB = [number, number, number];
-type RGBA = [number, number, number, number];
-
-export function hexToRgb(hex: string): RGB {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? [...h].map((c) => c + c).join('') : h;
-  const n = parseInt(full, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-const withAlpha = (rgb: RGB, a: number): RGBA => [rgb[0], rgb[1], rgb[2], a];
+import type { Bounds, DeckLayerKind, LayerNode, LayerStyle, PropertyValue } from './types';
 
 /** Light-to-strong ramp from the layer colour, used by aggregation layers. */
 function colorRamp(hex: string): RGB[] {
@@ -91,19 +81,34 @@ function wmsLayer(node: LayerNode, opacity: number): Layer {
   });
 }
 
+const colorTrigger = (p: PropertyValue<string>) => [p.mode, p.code, p.value];
+const numberTrigger = (p: PropertyValue<number>) => [p.mode, p.code, p.value];
+
 function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerStyle, ctx: DeckLayerContext): Layer | null {
   const state = dataStore.get(node);
   if (state?.status !== 'ready') return null;
   const { loaded } = state;
-  const rgb = hexToRgb(style.color);
   const common = {
     id: node.id,
-    opacity: style.opacity,
     pickable: true,
     autoHighlight: true,
     highlightColor: [255, 255, 255, 120] as RGBA,
     ...dataFilterExtensionProps(node.dataFilter, ctx),
   };
+  // deck.gl layers don't accept a per-row accessor for their own `opacity` prop (constant only), so
+  // a resolved opacity — constant or per-row — is baked into the alpha channel of whichever colour
+  // the layer paints with instead; the layer's own `opacity` is left at its default (1) for every
+  // kind below that uses this. (Hexagon/Heatmap are the exception — see their cases.) This replaces
+  // this app's previous fixed fill/line alpha constants (90/200/255) with the user's own opacity.
+  const color = resolveColorWithAlpha(style.color, style.opacity);
+  const radius = resolveNumberProperty(style.radius);
+  const lineWidth = resolveNumberProperty(style.lineWidth);
+  // deck.gl's built-in accessor props (getFillColor, getRadius, …) are diffed by reference, and the
+  // accessor functions above are cached by code string, so a prop only gets a new function reference
+  // when its underlying code actually changes — these triggers are redundant insurance for that, kept
+  // for the same reason the data filter's getFilterValue has one (see layerExtensions.ts): this app
+  // already hit a case this session where relying on implicit reference-diffing alone silently failed.
+  const colorUpdateTriggers = [...colorTrigger(style.color), ...numberTrigger(style.opacity)];
 
   switch (loaded.shape) {
     case 'geojson':
@@ -112,67 +117,92 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
         data: loaded.data as never,
         filled: true,
         stroked: true,
-        getFillColor: withAlpha(rgb, 90),
-        getLineColor: withAlpha(rgb, 255),
-        getPointRadius: style.radius,
+        getFillColor: color,
+        getLineColor: color,
+        getPointRadius: radius,
         pointRadiusMinPixels: 3,
-        getLineWidth: style.lineWidth,
+        getLineWidth: lineWidth,
         lineWidthUnits: 'pixels',
+        updateTriggers: {
+          ...common.updateTriggers,
+          getFillColor: colorUpdateTriggers,
+          getLineColor: colorUpdateTriggers,
+          getPointRadius: numberTrigger(style.radius),
+          getLineWidth: numberTrigger(style.lineWidth),
+        },
       });
     case 'paths':
       return new PathLayer({
         ...common,
         data: loaded.data,
         getPath: (d) => d.path,
-        getColor: rgb,
-        getWidth: style.lineWidth,
+        getColor: color,
+        getWidth: lineWidth,
         widthUnits: 'pixels',
         capRounded: true,
         jointRounded: true,
+        updateTriggers: { ...common.updateTriggers, getColor: colorUpdateTriggers, getWidth: numberTrigger(style.lineWidth) },
       });
-    case 'arcs':
+    case 'arcs': {
+      // Constant mode keeps the existing "solid source, lighter target" ramp look; an accessor on
+      // colour or opacity has no single ramp to derive a lighter variant from, so both ends share
+      // the same per-row resolved colour instead.
+      const isAccessor = style.color.mode === 'accessor' || style.opacity.mode === 'accessor';
+      const targetColor: RGBA | ((d: { properties?: Record<string, unknown> | null }) => RGBA) = isAccessor
+        ? color
+        : [...colorRamp(style.color.value)[1], Math.round(style.opacity.value * 255)];
       return new ArcLayer({
         ...common,
         data: loaded.data,
         getSourcePosition: (d) => d.source,
         getTargetPosition: (d) => d.target,
-        getSourceColor: rgb,
-        getTargetColor: colorRamp(style.color)[1],
-        getWidth: style.lineWidth,
+        getSourceColor: color,
+        getTargetColor: targetColor,
+        getWidth: lineWidth,
+        updateTriggers: {
+          ...common.updateTriggers,
+          getSourceColor: colorUpdateTriggers,
+          getTargetColor: colorUpdateTriggers,
+          getWidth: numberTrigger(style.lineWidth),
+        },
       });
+    }
     case 'points':
       if (kind === 'hexagon') {
         return new HexagonLayer({
           ...common,
+          opacity: style.opacity.value,
           data: loaded.data,
           getPosition: (d) => d.position,
-          radius: style.radius,
+          radius: style.radius.value,
           coverage: 0.9,
           extruded: false,
-          colorRange: colorRamp(style.color),
+          colorRange: colorRamp(style.color.value),
           gpuAggregation: false,
         });
       }
       if (kind === 'heatmap') {
         return new HeatmapLayer({
           ...common,
+          opacity: style.opacity.value,
           pickable: false,
           data: loaded.data,
           getPosition: (d) => d.position,
-          radiusPixels: style.radius,
-          colorRange: colorRamp(style.color),
+          radiusPixels: style.radius.value,
+          colorRange: colorRamp(style.color.value),
         });
       }
       return new ScatterplotLayer({
         ...common,
         data: loaded.data,
         getPosition: (d) => d.position,
-        getRadius: style.radius,
+        getRadius: radius,
         radiusMinPixels: 2,
         stroked: true,
-        getFillColor: withAlpha(rgb, 200),
+        getFillColor: color,
         getLineColor: [255, 255, 255, 220],
         lineWidthMinPixels: 1,
+        updateTriggers: { ...common.updateTriggers, getRadius: numberTrigger(style.radius), getFillColor: colorUpdateTriggers },
       });
   }
 }
@@ -181,7 +211,7 @@ export type DeckLayerContext = DataFilterContext;
 
 /** Builds the deck.gl layer for a node; returns null while data is still loading. */
 export function toDeckLayer(node: LayerNode, ctx: DeckLayerContext): Layer | null {
-  if (node.kind === 'wms') return node.wms ? wmsLayer(node, node.style.opacity) : null;
+  if (node.kind === 'wms') return node.wms ? wmsLayer(node, node.style.opacity.value) : null;
   const kind = node.kind === 'clickhouse' ? (node.clickhouse?.render ?? 'scatterplot') : node.kind;
   return vectorLayer(node, kind, node.style, ctx);
 }
