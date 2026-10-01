@@ -172,5 +172,6 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
 /** Builds the deck.gl layer for a node; returns null while data is still loading. */
 export function toDeckLayer(node: LayerNode): Layer | null {
   if (node.kind === 'wms') return node.wms ? wmsLayer(node, node.style.opacity) : null;
-  return vectorLayer(node, node.kind, node.style);
+  const kind = node.kind === 'clickhouse' ? (node.clickhouse?.render ?? 'scatterplot') : node.kind;
+  return vectorLayer(node, kind, node.style);
 }

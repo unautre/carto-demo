@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_KINDS, KINDS, makeLayer, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
+import { fetchClickHouseRows } from '../clickhouse';
 import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
-type Tab = 'deck' | 'wms' | 'wfs';
+type Tab = 'deck' | 'wms' | 'wfs' | 'clickhouse';
 
 interface Props {
   onAdd: (layer: LayerNode, zoom: boolean) => void;
@@ -34,15 +35,16 @@ export function AddLayerDialog({ onAdd, onClose }: Props) {
           <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
         <nav className="tabs" role="tablist">
-          {(['deck', 'wms', 'wfs'] as Tab[]).map((t) => (
+          {(['deck', 'wms', 'wfs', 'clickhouse'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t === 'deck' ? 'deck.gl layer' : t.toUpperCase()}
+              {t === 'deck' ? 'deck.gl layer' : t === 'clickhouse' ? 'ClickHouse' : t.toUpperCase()}
             </button>
           ))}
         </nav>
         {tab === 'deck' && <DeckForm onAdd={add} />}
         {tab === 'wms' && <ServiceForm service="WMS" onAdd={add} />}
         {tab === 'wfs' && <ServiceForm service="WFS" onAdd={add} />}
+        {tab === 'clickhouse' && <ClickHouseForm onAdd={add} />}
         <label className="check zoom-check">
           <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
           Zoom to the layer after adding
@@ -248,6 +250,89 @@ function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: La
       )}
       <div className="form-actions">
         <button className="btn primary" type="submit" disabled={!layerNames.length}>Add {service} layer</button>
+      </div>
+    </form>
+  );
+}
+
+function ClickHouseForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
+  const [url, setUrl] = useState('http://localhost:8123');
+  const [database, setDatabase] = useState('');
+  const [username, setUsername] = useState('default');
+  const [password, setPassword] = useState('');
+  const [query, setQuery] = useState('SELECT lon, lat FROM my_table LIMIT 1000');
+  const [render, setRender] = useState<DeckLayerKind>('scatterplot');
+  const [name, setName] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState('');
+  const [error, setError] = useState('');
+
+  const params = { query, database: database.trim() || undefined, username: username.trim() || undefined, password: password || undefined, render };
+
+  const test = async () => {
+    setTesting(true);
+    setError('');
+    setResult('');
+    try {
+      const r = await fetchClickHouseRows(url.trim(), params);
+      setResult(`${r.rows} row${r.rows === 1 ? '' : 's'} · columns: ${r.meta.map((m) => m.name).join(', ') || '—'}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <form
+      className="form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onAdd(makeLayer('clickhouse', name.trim() || 'ClickHouse layer', url.trim(), { clickhouse: params }));
+      }}
+    >
+      <label className="field">
+        <span>HTTP endpoint</span>
+        <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8123" />
+      </label>
+      <div className="field-row">
+        <label className="field">
+          <span>Database</span>
+          <input value={database} onChange={(e) => setDatabase(e.target.value)} placeholder="default" />
+        </label>
+        <label className="field">
+          <span>Username</span>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Password</span>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+      </div>
+      <label className="field">
+        <span>Render as</span>
+        <select value={render} onChange={(e) => setRender(e.target.value as DeckLayerKind)}>
+          {DECK_KINDS.map((k) => <option key={k} value={k}>{KINDS[k].label}</option>)}
+        </select>
+      </label>
+      <p className="muted hint">{KINDS[render].hint}</p>
+      <label className="field">
+        <span>SQL query</span>
+        <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />
+      </label>
+      <div className="field-row">
+        <button type="button" className="btn" onClick={test} disabled={testing || !url.trim() || !query.trim()}>
+          {testing ? 'Running…' : 'Test query'}
+        </button>
+        {result && <span className="muted">{result}</span>}
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <label className="field">
+        <span>Name</span>
+        <input value={name} placeholder="ClickHouse layer" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <div className="form-actions">
+        <button className="btn primary" type="submit">Add ClickHouse layer</button>
       </div>
     </form>
   );

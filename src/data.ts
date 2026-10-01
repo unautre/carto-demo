@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { fetchClickHouseRows, clickhouseQueryUrl } from './clickhouse';
 import { parseGml } from './gml';
 import { wfsGetFeatureUrl } from './ogc';
 import type { Bounds, LayerKind, LayerNode } from './types';
@@ -174,13 +175,17 @@ function computeBounds(loaded: LoadedData): Bounds | undefined {
 }
 
 export function sourceUrl(layer: LayerNode): string {
-  return layer.kind === 'wfs' && layer.wfs ? wfsGetFeatureUrl(layer.url, layer.wfs) : layer.url;
+  if (layer.kind === 'wfs' && layer.wfs) return wfsGetFeatureUrl(layer.url, layer.wfs);
+  if (layer.kind === 'clickhouse' && layer.clickhouse) return clickhouseQueryUrl(layer.url, layer.clickhouse);
+  return layer.url;
 }
 
 /** Cache key; layers with identical sources share one download. WMS has no key (tiles load on demand). */
 export function dataKey(layer: LayerNode): string | undefined {
   if (layer.kind === 'wms') return undefined;
-  return `${layer.kind}|${layer.wfs?.swapXY ? 'swap|' : ''}${sourceUrl(layer)}`;
+  // The query result is normalised according to `render`, so it's part of the key.
+  const render = layer.kind === 'clickhouse' ? `|render=${layer.clickhouse?.render}` : '';
+  return `${layer.kind}|${layer.wfs?.swapXY ? 'swap|' : ''}${sourceUrl(layer)}${render}`;
 }
 
 /** Tiny external store so any component can read load status without prop drilling. */
@@ -231,22 +236,28 @@ class DataStore {
     this.emit();
     const promise = (async (): Promise<DataState> => {
       try {
-        const res = await fetch(sourceUrl(layer));
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const text = await res.text();
         let json: unknown;
-        if (text.trimStart().startsWith('<')) {
-          // XML: a GML FeatureCollection (WFS without JSON output) or an OGC exception report
-          if (layer.kind !== 'wfs' && layer.kind !== 'geojson') throw new Error(`Response is XML, not JSON: ${text.slice(0, 160)}`);
-          json = parseGml(text);
+        let normKind: LayerKind = layer.kind;
+        if (layer.kind === 'clickhouse' && layer.clickhouse) {
+          json = (await fetchClickHouseRows(layer.url, layer.clickhouse)).data;
+          normKind = layer.clickhouse.render;
         } else {
-          try {
-            json = JSON.parse(text);
-          } catch {
-            throw new Error(`Response is not JSON: ${text.slice(0, 160)}`);
+          const res = await fetch(sourceUrl(layer));
+          if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+          const text = await res.text();
+          if (text.trimStart().startsWith('<')) {
+            // XML: a GML FeatureCollection (WFS without JSON output) or an OGC exception report
+            if (layer.kind !== 'wfs' && layer.kind !== 'geojson') throw new Error(`Response is XML, not JSON: ${text.slice(0, 160)}`);
+            json = parseGml(text);
+          } else {
+            try {
+              json = JSON.parse(text);
+            } catch {
+              throw new Error(`Response is not JSON: ${text.slice(0, 160)}`);
+            }
           }
         }
-        const loaded = normalise(layer.kind, json, !!layer.wfs?.swapXY);
+        const loaded = normalise(normKind, json, !!layer.wfs?.swapXY);
         const count = loaded.shape === 'geojson' ? loaded.data.features.length : loaded.data.length;
         return { status: 'ready', loaded, count, bounds: computeBounds(loaded) };
       } catch (e) {

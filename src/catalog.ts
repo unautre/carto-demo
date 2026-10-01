@@ -69,6 +69,12 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     style: { color: '#1b998b', opacity: 0.9, radius: 80, lineWidth: 1.5 },
     controls: ['lineWidth', 'radius'], radiusLabel: 'Point radius (m)',
   },
+  clickhouse: {
+    label: 'ClickHouse', icon: '▧',
+    hint: 'Rows from a ClickHouse SQL query (HTTP interface), drawn with the chosen render layer.',
+    style: { color: '#ffc300', opacity: 0.85, radius: 100, lineWidth: 2 },
+    controls: ['radius', 'lineWidth'], radiusLabel: 'Radius',
+  },
 };
 
 export const DECK_KINDS: DeckLayerKind[] = ['scatterplot', 'geojson', 'path', 'arc', 'hexagon', 'heatmap'];

@@ -1,5 +1,5 @@
 export type DeckLayerKind = 'scatterplot' | 'geojson' | 'path' | 'arc' | 'hexagon' | 'heatmap';
-export type LayerKind = DeckLayerKind | 'wms' | 'wfs';
+export type LayerKind = DeckLayerKind | 'wms' | 'wfs' | 'clickhouse';
 
 /** [west, south, east, north] in degrees */
 export type Bounds = [number, number, number, number];
@@ -36,17 +36,28 @@ export interface WfsParams {
   outputFormat?: string;
 }
 
+export interface ClickHouseParams {
+  /** SQL query; result columns are interpreted the same way as `render`'s deck.gl layer (lng/lat, path, source/target, or GeoJSON) */
+  query: string;
+  database?: string;
+  username?: string;
+  password?: string;
+  /** deck.gl layer used to draw the query's rows */
+  render: DeckLayerKind;
+}
+
 export interface LayerNode {
   type: 'layer';
   id: string;
   name: string;
   visible: boolean;
   kind: LayerKind;
-  /** data URL for deck.gl layers, service endpoint for WMS / WFS */
+  /** data URL for deck.gl layers, service endpoint for WMS / WFS / ClickHouse */
   url: string;
   style: LayerStyle;
   wms?: WmsParams;
   wfs?: WfsParams;
+  clickhouse?: ClickHouseParams;
   /** known extent, e.g. from GetCapabilities */
   bounds?: Bounds;
   /** bumped by "Reload" to force a refetch */

@@ -216,13 +216,14 @@ button, input, select { font: inherit; color: inherit; }
 .field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .field > span { font-size: 12px; color: var(--muted); }
 .field.narrow { flex: 0 0 110px; }
-.field input:not([type='range']):not([type='color']), .field select, .filter {
+.field input:not([type='range']):not([type='color']), .field select, .field textarea, .filter {
   padding: 5px 7px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
   width: 100%;
 }
+.field textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 12px; }
 .field input[type='range'] { accent-color: var(--accent); }
 .color-field { flex: 0 0 auto; }
 .color-field input { width: 44px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; }
