@@ -9,13 +9,24 @@ import {
   ThemeWidget,
   ZoomWidget,
   _ScaleWidget as ScaleWidget,
+  _TimelineWidget as TimelineWidget,
 } from '@deck.gl/widgets';
-import type { WidgetConfig, WidgetKind, WidgetSettings } from './types';
+import type { TimelineConfig, WidgetConfig, WidgetKind, WidgetSettings } from './types';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Fixed at module load, not "now" at render time: a stable, reasonable default range for the slider. */
+export const DEFAULT_TIMELINE_CONFIG: TimelineConfig = {
+  timeRange: [Date.now() - DAY_MS, Date.now()],
+  autoPlay: false,
+};
 
 /** Extra context a widget's factory may need beyond its placement. */
 export interface WidgetCreateContext {
   /** View state ResetViewWidget returns to; falls back to deck.gl's own (usually unhelpful) default without this. */
   initialViewState: MapViewState;
+  /** Only used by the 'timeline' kind: its controlled slider value, change handler, and settings. */
+  timeline?: TimelineConfig & { time: number; onTimeChange: (time: number) => void };
 }
 
 export interface WidgetKindInfo {
@@ -81,16 +92,53 @@ export const WIDGET_KINDS: Record<WidgetKind, WidgetKindInfo> = {
     defaultPlacement: 'top-left',
     create: (placement) => new ScaleWidget({ placement }),
   },
+  timeline: {
+    label: 'Timeline', icon: '▸',
+    hint:
+      "A time slider (deck.gl preview widget), always full-width at the bottom — TimelineWidget ignores `placement`. " +
+      "Its position/range is available as `timestamp`/`timeRangeStart`/`timeRangeEnd` in every layer's data filter code and ClickHouse query.",
+    defaultPlacement: 'fill',
+    create: (placement, ctx) => {
+      const t = ctx.timeline!;
+      return new TimelineWidget({
+        placement,
+        time: t.time,
+        timeRange: t.timeRange,
+        autoPlay: t.autoPlay,
+        loop: t.autoPlay,
+        onTimeChange: t.onTimeChange,
+        formatLabel: (v) => new Date(v).toLocaleString(),
+      });
+    },
+  },
 };
 
-export const WIDGET_KIND_ORDER: WidgetKind[] = ['zoom', 'compass', 'resetView', 'gimbal', 'fullscreen', 'screenshot', 'theme', 'loading', 'scale'];
+export const WIDGET_KIND_ORDER: WidgetKind[] = ['zoom', 'compass', 'resetView', 'gimbal', 'fullscreen', 'screenshot', 'theme', 'loading', 'scale', 'timeline'];
 
+/** User-selectable in the Widgets panel. Excludes 'fill': no widget here actually uses it as a choice (TimelineWidget ignores `placement` and is always 'fill'). */
 export const PLACEMENTS: WidgetPlacement[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
+/** For validating a saved placement (localStorage), where 'fill' can legitimately appear (the Timeline widget's). */
+const ALL_PLACEMENTS: WidgetPlacement[] = [...PLACEMENTS, 'fill'];
 
 export function defaultWidgetSettings(): WidgetSettings {
   return Object.fromEntries(
-    WIDGET_KIND_ORDER.map((kind): [WidgetKind, WidgetConfig] => [kind, { enabled: false, placement: WIDGET_KINDS[kind].defaultPlacement }]),
+    WIDGET_KIND_ORDER.map((kind): [WidgetKind, WidgetConfig] => [
+      kind,
+      { enabled: false, placement: WIDGET_KINDS[kind].defaultPlacement, ...(kind === 'timeline' ? { timeline: DEFAULT_TIMELINE_CONFIG } : {}) },
+    ]),
   ) as WidgetSettings;
+}
+
+function isValidTimelineConfig(t: unknown): t is TimelineConfig {
+  const c = t as Partial<TimelineConfig> | undefined;
+  return (
+    !!c &&
+    Array.isArray(c.timeRange) &&
+    c.timeRange.length === 2 &&
+    c.timeRange.every((n) => typeof n === 'number' && Number.isFinite(n)) &&
+    typeof c.autoPlay === 'boolean'
+  );
 }
 
 /** Fills in any kind missing from a (possibly older, partial) saved settings blob. */
@@ -99,7 +147,8 @@ export function withWidgetDefaults(saved: Partial<WidgetSettings> | undefined): 
   if (!saved) return defaults;
   for (const kind of WIDGET_KIND_ORDER) {
     const s = saved[kind];
-    if (s && typeof s.enabled === 'boolean' && PLACEMENTS.includes(s.placement)) defaults[kind] = s;
+    if (!s || typeof s.enabled !== 'boolean' || !ALL_PLACEMENTS.includes(s.placement)) continue;
+    defaults[kind] = kind === 'timeline' ? { ...s, timeline: isValidTimelineConfig(s.timeline) ? s.timeline : DEFAULT_TIMELINE_CONFIG } : s;
   }
   return defaults;
 }

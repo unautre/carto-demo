@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_KINDS, KINDS, makeLayer, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
-import { fetchClickHouseRows } from '../clickhouse';
+import { fetchClickHouseRows, type QueryTemplateContext } from '../clickhouse';
 import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
@@ -11,9 +11,10 @@ type Tab = 'deck' | 'wms' | 'wfs' | 'clickhouse';
 interface Props {
   onAdd: (layer: LayerNode, zoom: boolean) => void;
   onClose: () => void;
+  queryCtx: QueryTemplateContext;
 }
 
-export function AddLayerDialog({ onAdd, onClose }: Props) {
+export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
   const [tab, setTab] = useState<Tab>('deck');
   const [zoom, setZoom] = useState(true);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -44,7 +45,7 @@ export function AddLayerDialog({ onAdd, onClose }: Props) {
         {tab === 'deck' && <DeckForm onAdd={add} />}
         {tab === 'wms' && <ServiceForm service="WMS" onAdd={add} />}
         {tab === 'wfs' && <ServiceForm service="WFS" onAdd={add} />}
-        {tab === 'clickhouse' && <ClickHouseForm onAdd={add} />}
+        {tab === 'clickhouse' && <ClickHouseForm onAdd={add} queryCtx={queryCtx} />}
         <label className="check zoom-check">
           <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
           Zoom to the layer after adding
@@ -255,7 +256,7 @@ function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: La
   );
 }
 
-function ClickHouseForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
+function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; queryCtx: QueryTemplateContext }) {
   const [url, setUrl] = useState('http://localhost:8123');
   const [database, setDatabase] = useState('');
   const [username, setUsername] = useState('default');
@@ -274,7 +275,7 @@ function ClickHouseForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
     setError('');
     setResult('');
     try {
-      const r = await fetchClickHouseRows(url.trim(), params);
+      const r = await fetchClickHouseRows(url.trim(), params, queryCtx);
       setResult(`${r.rows} row${r.rows === 1 ? '' : 's'} · columns: ${r.meta.map((m) => m.name).join(', ') || '—'}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -320,6 +321,10 @@ function ClickHouseForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
         <span>SQL query</span>
         <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
+      <p className="muted hint">
+        <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
+        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".
+      </p>
       <div className="field-row">
         <button type="button" className="btn" onClick={test} disabled={testing || !url.trim() || !query.trim()}>
           {testing ? 'Running…' : 'Test query'}

@@ -3,7 +3,7 @@ import { ArcLayer, BitmapLayer, GeoJsonLayer, PathLayer, ScatterplotLayer } from
 import { TileLayer, type TileLayerProps } from '@deck.gl/geo-layers';
 import { HeatmapLayer, HexagonLayer } from '@deck.gl/aggregation-layers';
 import { dataStore } from './data';
-import { dataFilterExtensionProps } from './layerExtensions';
+import { dataFilterExtensionProps, type DataFilterContext } from './layerExtensions';
 import { fetchWmsImage, wmsGetMapUrl } from './ogc';
 import type { Bounds, DeckLayerKind, LayerNode, LayerStyle } from './types';
 
@@ -91,7 +91,7 @@ function wmsLayer(node: LayerNode, opacity: number): Layer {
   });
 }
 
-function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerStyle): Layer | null {
+function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerStyle, ctx: DeckLayerContext): Layer | null {
   const state = dataStore.get(node);
   if (state?.status !== 'ready') return null;
   const { loaded } = state;
@@ -102,7 +102,7 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
     pickable: true,
     autoHighlight: true,
     highlightColor: [255, 255, 255, 120] as RGBA,
-    ...dataFilterExtensionProps(node.dataFilter),
+    ...dataFilterExtensionProps(node.dataFilter, ctx),
   };
 
   switch (loaded.shape) {
@@ -177,9 +177,11 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
   }
 }
 
+export type DeckLayerContext = DataFilterContext;
+
 /** Builds the deck.gl layer for a node; returns null while data is still loading. */
-export function toDeckLayer(node: LayerNode): Layer | null {
+export function toDeckLayer(node: LayerNode, ctx: DeckLayerContext): Layer | null {
   if (node.kind === 'wms') return node.wms ? wmsLayer(node, node.style.opacity) : null;
   const kind = node.kind === 'clickhouse' ? (node.clickhouse?.render ?? 'scatterplot') : node.kind;
-  return vectorLayer(node, kind, node.style);
+  return vectorLayer(node, kind, node.style, ctx);
 }

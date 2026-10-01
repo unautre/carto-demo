@@ -52,7 +52,9 @@ export interface DataFilterConfig {
   enabled: boolean;
   /**
    * JS function body for deck.gl's DataFilterExtension `getFilterValue` accessor.
-   * Receives `properties` (the row/feature's properties) and `d` (the raw row/feature); must return a number.
+   * Receives `properties` (the row/feature's properties), `d` (the raw row/feature), and
+   * `timestamp` (epoch ms: the Timeline widget's current position if one is enabled, else the
+   * time the layer was last (re)built); must return a number.
    */
   getFilterValue: string;
   /** rows whose value falls within [min, max] are shown; others are hidden */
@@ -97,11 +99,19 @@ export interface DropTarget {
   position: DropPosition;
 }
 
-export type WidgetKind = 'zoom' | 'compass' | 'resetView' | 'gimbal' | 'fullscreen' | 'screenshot' | 'theme' | 'loading' | 'scale';
+export type WidgetKind = 'zoom' | 'compass' | 'resetView' | 'gimbal' | 'fullscreen' | 'screenshot' | 'theme' | 'loading' | 'scale' | 'timeline';
+
+export interface TimelineConfig {
+  /** [min, max] epoch-ms bounds for the slider */
+  timeRange: [number, number];
+  autoPlay: boolean;
+}
 
 export interface WidgetConfig {
   enabled: boolean;
   placement: WidgetPlacement;
+  /** only set (and used) for the 'timeline' kind */
+  timeline?: TimelineConfig;
 }
 
 export type WidgetSettings = Record<WidgetKind, WidgetConfig>;

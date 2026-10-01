@@ -261,7 +261,7 @@ button, input, select { font: inherit; color: inherit; }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  width: 240px;
+  width: 280px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -269,12 +269,21 @@ button, input, select { font: inherit; color: inherit; }
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
+.widgets-menu-item { display: flex; flex-direction: column; gap: 6px; }
 .widgets-menu-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .widgets-menu-row .check { flex: 1; min-width: 0; }
 .widgets-menu-row select { font-size: 11px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); flex: 0 0 auto; }
 .widgets-menu-row select:disabled { opacity: 0.5; }
+.widgets-menu-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 22px;
+  padding: 6px 0 2px 8px;
+  border-left: 2px solid var(--border);
+}
 .attribution {
   position: absolute;
   right: 0;

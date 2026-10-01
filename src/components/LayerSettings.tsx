@@ -11,9 +11,13 @@ interface Props {
   layer: LayerNode;
   dispatch: Dispatch<Action>;
   depth: number;
+  /** epoch ms, for the data filter's `timestamp` — see App.tsx */
+  timestamp: number;
+  /** whether `timestamp` currently comes from the Timeline widget rather than "now" */
+  timelineActive: boolean;
 }
 
-export function LayerSettings({ layer, dispatch, depth }: Props) {
+export function LayerSettings({ layer, dispatch, depth, timestamp, timelineActive }: Props) {
   useDataStoreVersion();
   const info = KINDS[layer.kind];
   // For a ClickHouse layer, style controls follow the render kind (e.g. a hexagon render wants a radius slider).
@@ -158,6 +162,10 @@ export function LayerSettings({ layer, dispatch, depth }: Props) {
               }}
             />
           </label>
+          <p className="muted hint">
+            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers
+            — {timelineActive ? "the Timeline widget's position/range" : 'all three are "now"'}. Re-resolved on Reload, not live.
+          </p>
           <div className="field-row">
             <label className="field">
               <span>Database</span>
@@ -237,7 +245,7 @@ export function LayerSettings({ layer, dispatch, depth }: Props) {
                     if (state?.status !== 'ready') return;
                     const { fn, error } = compileFilterValue(layer.dataFilter!.getFilterValue);
                     setFilterError(error);
-                    const range = computeFilterRange(state.loaded, fn);
+                    const range = computeFilterRange(state.loaded, fn, timestamp);
                     if (range) setDataFilter({ filterRange: range });
                   }}
                 >
@@ -245,7 +253,8 @@ export function LayerSettings({ layer, dispatch, depth }: Props) {
                 </button>
               </div>
               <p className="muted hint">
-                Runs once per row; <code>properties</code> is the row's/feature's properties. Must return a number — rows outside Min–Max are hidden.
+                Runs once per row; <code>properties</code> is the row's/feature's properties, <code>timestamp</code> is{' '}
+                {timelineActive ? 'the Timeline widget’s current position' : 'now'} (epoch ms). Must return a number — rows outside Min–Max are hidden.
               </p>
             </>
           )}

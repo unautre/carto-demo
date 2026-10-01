@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { fetchClickHouseRows, clickhouseQueryUrl } from './clickhouse';
+import { fetchClickHouseRows, clickhouseQueryUrl, type QueryTemplateContext } from './clickhouse';
 import { parseGml } from './gml';
 import { wfsGetFeatureUrl } from './ogc';
 import type { Bounds, LayerKind, LayerNode } from './types';
@@ -224,7 +224,8 @@ class DataStore {
     this.emit();
   }
 
-  load(layer: LayerNode): Promise<DataState> {
+  /** `ctx` only matters for ClickHouse layers (resolves `{{timestamp}}` etc.); defaults to "now" when omitted. */
+  load(layer: LayerNode, ctx: QueryTemplateContext = { timestamp: Date.now(), timeRangeStart: Date.now(), timeRangeEnd: Date.now() }): Promise<DataState> {
     const key = dataKey(layer);
     if (!key) return Promise.resolve({ status: 'error', error: 'WMS layers load as tiles' });
     const existing = this.states.get(key);
@@ -239,7 +240,7 @@ class DataStore {
         let json: unknown;
         let normKind: LayerKind = layer.kind;
         if (layer.kind === 'clickhouse' && layer.clickhouse) {
-          json = (await fetchClickHouseRows(layer.url, layer.clickhouse)).data;
+          json = (await fetchClickHouseRows(layer.url, layer.clickhouse, ctx)).data;
           normKind = layer.clickhouse.render;
         } else {
           const res = await fetch(sourceUrl(layer));

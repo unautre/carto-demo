@@ -26,6 +26,10 @@ interface PanelCtx {
   activeId: string | null;
   openSettings: string | null;
   setOpenSettings: (id: string | null) => void;
+  /** epoch ms, for a layer's data-filter `timestamp` — see App.tsx */
+  timestamp: number;
+  /** whether `timestamp` currently comes from the Timeline widget rather than "now" */
+  timelineActive: boolean;
 }
 
 const Ctx = createContext<PanelCtx>(null!);
@@ -35,9 +39,11 @@ interface Props {
   dispatch: Dispatch<Action>;
   onZoomTo: (node: TreeNode) => void;
   onAddLayer: () => void;
+  timestamp: number;
+  timelineActive: boolean;
 }
 
-export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer }: Props) {
+export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp, timelineActive }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [openSettings, setOpenSettings] = useState<string | null>(null);
@@ -86,7 +92,7 @@ export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer }: Props) {
   const visibleCount = layers.filter((l) => l.visible).length;
 
   return (
-    <Ctx.Provider value={{ dispatch, onZoomTo, dropTarget, activeId, openSettings, setOpenSettings }}>
+    <Ctx.Provider value={{ dispatch, onZoomTo, dropTarget, activeId, openSettings, setOpenSettings, timestamp, timelineActive }}>
       <aside className="panel">
         <header className="panel-header">
           <div className="panel-title">
@@ -209,7 +215,7 @@ function Status({ layer }: { layer: LayerNode }) {
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
-  const { dispatch, onZoomTo, openSettings, setOpenSettings } = useContext(Ctx);
+  const { dispatch, onZoomTo, openSettings, setOpenSettings, timestamp, timelineActive } = useContext(Ctx);
   const info = KINDS[layer.kind];
   const open = openSettings === layer.id;
   return (
@@ -236,7 +242,7 @@ function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
           </>
         )}
       </Row>
-      {open && <LayerSettings layer={layer} dispatch={dispatch} depth={depth} />}
+      {open && <LayerSettings layer={layer} dispatch={dispatch} depth={depth} timestamp={timestamp} timelineActive={timelineActive} />}
     </>
   );
 }

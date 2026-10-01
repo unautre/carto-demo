@@ -3,8 +3,8 @@ import type { WidgetPlacement } from '@deck.gl/core';
 import { defaultTree, makeGroup } from './catalog';
 import { BASEMAPS, type BasemapId } from './deckLayers';
 import { findNode, moveNode, removeNode, setAllVisible, ungroup, updateNode } from './tree';
-import { defaultWidgetSettings, withWidgetDefaults } from './widgetCatalog';
-import type { DropPosition, LayerNode, TreeNode, WidgetKind, WidgetSettings } from './types';
+import { DEFAULT_TIMELINE_CONFIG, defaultWidgetSettings, withWidgetDefaults } from './widgetCatalog';
+import type { DropPosition, LayerNode, TimelineConfig, TreeNode, WidgetKind, WidgetSettings } from './types';
 
 export interface AppState {
   tree: TreeNode[];
@@ -26,6 +26,7 @@ export type Action =
   | { type: 'setBasemap'; basemap: BasemapId }
   | { type: 'toggleWidget'; kind: WidgetKind }
   | { type: 'setWidgetPlacement'; kind: WidgetKind; placement: WidgetPlacement }
+  | { type: 'setTimelineConfig'; patch: Partial<TimelineConfig> }
   | { type: 'reset' };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -69,6 +70,11 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'setWidgetPlacement':
       return { ...state, widgets: { ...state.widgets, [action.kind]: { ...state.widgets[action.kind], placement: action.placement } } };
+    case 'setTimelineConfig': {
+      const w = state.widgets.timeline;
+      const timeline = { ...(w.timeline ?? DEFAULT_TIMELINE_CONFIG), ...action.patch };
+      return { ...state, widgets: { ...state.widgets, timeline: { ...w, timeline } } };
+    }
     case 'reset':
       return { tree: defaultTree(), basemap: 'light', widgets: defaultWidgetSettings() };
   }

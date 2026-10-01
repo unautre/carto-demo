@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clickhouseQueryUrl, fetchClickHouseRows } from './clickhouse';
+import { clickhouseQueryUrl, fetchClickHouseRows, interpolateQuery } from './clickhouse';
 import { dataStore } from './data';
 import type { ClickHouseParams, LayerNode } from './types';
+
+const T = 1_700_000_000_000;
+const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000 };
 
 const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): LayerNode => ({
   type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', url,
@@ -12,6 +15,25 @@ const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): L
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('interpolateQuery', () => {
+  it('replaces all three placeholders with epoch-ms numbers', () => {
+    const sql = interpolateQuery('WHERE ts BETWEEN {{timeRangeStart}} AND {{timeRangeEnd}} AND now = {{timestamp}}', CTX);
+    expect(sql).toBe(`WHERE ts BETWEEN ${CTX.timeRangeStart} AND ${CTX.timeRangeEnd} AND now = ${CTX.timestamp}`);
+  });
+
+  it('tolerates whitespace inside the braces and repeats', () => {
+    expect(interpolateQuery('{{ timestamp }} {{timestamp}}', CTX)).toBe(`${CTX.timestamp} ${CTX.timestamp}`);
+  });
+
+  it('leaves a query with no placeholders untouched', () => {
+    expect(interpolateQuery('SELECT 1', CTX)).toBe('SELECT 1');
+  });
+
+  it("doesn't collide with ClickHouse's own {name:Type} parameter syntax", () => {
+    expect(interpolateQuery('SELECT {limit:UInt32} LIMIT {{timestamp}}', CTX)).toBe(`SELECT {limit:UInt32} LIMIT ${CTX.timestamp}`);
+  });
 });
 
 describe('clickhouseQueryUrl', () => {
@@ -25,6 +47,11 @@ describe('clickhouseQueryUrl', () => {
     const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT 1', database: 'geo', render: 'scatterplot' });
     expect(new URL(url).searchParams.get('database')).toBe('geo');
   });
+
+  it('does not interpolate placeholders — it is the (stable) cache key, not what gets sent', () => {
+    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT {{timestamp}}', render: 'scatterplot' });
+    expect(new URL(url).searchParams.get('query')).toBe('SELECT {{timestamp}}\nFORMAT JSON');
+  });
 });
 
 describe('fetchClickHouseRows', () => {
@@ -32,16 +59,26 @@ describe('fetchClickHouseRows', () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', username: 'default', password: 'secret', render: 'scatterplot' });
+    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', username: 'default', password: 'secret', render: 'scatterplot' }, CTX);
 
     const [requestUrl, init] = fetchMock.mock.calls[0];
     expect(String(requestUrl)).not.toContain('secret');
     expect(init?.headers).toMatchObject({ 'X-ClickHouse-User': 'default', 'X-ClickHouse-Key': 'secret' });
   });
 
+  it('interpolates {{timestamp}} etc. in the query it actually sends', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT * WHERE ts <= {{timestamp}}', render: 'scatterplot' }, CTX);
+
+    const [requestUrl] = fetchMock.mock.calls[0];
+    expect(new URL(String(requestUrl)).searchParams.get('query')).toBe(`SELECT * WHERE ts <= ${CTX.timestamp}\nFORMAT JSON`);
+  });
+
   it('turns a non-2xx response into a readable error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('Code: 60. DB::Exception: Table default.nope doesn\'t exist', { status: 404 })));
-    await expect(fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', render: 'scatterplot' }))
+    await expect(fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', render: 'scatterplot' }, CTX))
       .rejects.toThrow(/404.*nope doesn't exist/s);
   });
 });
@@ -75,5 +112,16 @@ describe('dataStore.load for a ClickHouse layer', () => {
     expect(state.status).toBe('error');
     if (state.status !== 'error') throw new Error('expected error');
     expect(state.error).toMatch(/Unknown column/);
+  });
+
+  it('sends the query with {{timestamp}} resolved from the given ctx', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const layer = chLayer({ query: 'SELECT lon, lat FROM events WHERE ts <= {{timestamp}}', render: 'scatterplot' }, 'http://localhost:8123/ts');
+
+    await dataStore.load(layer, CTX);
+
+    const [requestUrl] = fetchMock.mock.calls[0];
+    expect(new URL(String(requestUrl)).searchParams.get('query')).toContain(String(CTX.timestamp));
   });
 });
