@@ -52,13 +52,16 @@ export interface DataFilterConfig {
   enabled: boolean;
   /**
    * JS function body for deck.gl's DataFilterExtension `getFilterValue` accessor.
-   * Receives `properties` (the row/feature's properties), `d` (the raw row/feature), and
-   * `timestamp` (epoch ms: the Timeline widget's current position if one is enabled, else the
-   * time the layer was last (re)built); must return a number.
+   * Receives `properties` (the row/feature's properties) and `d` (the raw row/feature); must
+   * return a number.
    */
   getFilterValue: string;
-  /** rows whose value falls within [min, max] are shown; others are hidden */
+  /** 'manual': `filterRange` below, typed in directly. 'timeline': `[timestamp - delay, timestamp]`, recomputed from the Timeline widget's position (or "now" if it's off). */
+  mode: 'manual' | 'timeline';
+  /** rows whose value falls within [min, max] are shown; others are hidden. Used when `mode` is 'manual'. */
   filterRange: [number, number];
+  /** trailing window length in ms. Used when `mode` is 'timeline'. */
+  delay: number;
 }
 
 export interface LayerNode {

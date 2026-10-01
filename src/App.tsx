@@ -142,14 +142,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <LayerPanel
-        tree={tree}
-        dispatch={dispatch}
-        onZoomTo={zoomTo}
-        onAddLayer={() => setAdding(true)}
-        timestamp={timestamp}
-        timelineActive={timelineSettings.enabled}
-      />
+      <LayerPanel tree={tree} dispatch={dispatch} onZoomTo={zoomTo} onAddLayer={() => setAdding(true)} timestamp={timestamp} />
       <main className="map" ref={mapRef}>
         <DeckGL
           viewState={viewState}

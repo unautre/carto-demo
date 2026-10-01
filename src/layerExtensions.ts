@@ -3,10 +3,14 @@ import { DataFilterExtension } from '@deck.gl/extensions';
 import type { LoadedData } from './data';
 import type { DataFilterConfig } from './types';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export const DEFAULT_DATA_FILTER: DataFilterConfig = {
   enabled: true,
   getFilterValue: 'return properties.value ?? 0;',
+  mode: 'manual',
   filterRange: [-1, 1],
+  delay: DAY_MS,
 };
 
 export interface RowLike {
@@ -14,7 +18,7 @@ export interface RowLike {
 }
 
 export interface CompiledFilter {
-  fn: (d: RowLike, timestamp: number) => number;
+  fn: (d: RowLike) => number;
   /** Set when `code` failed to compile; `fn` falls back to returning 0. */
   error?: string;
 }
@@ -24,8 +28,7 @@ const cache = new Map<string, CompiledFilter>();
 /**
  * Compiles user-supplied JS into a `getFilterValue` accessor. `code` is a function body
  * (an implicit `return` is added if it looks like a bare expression); it receives
- * `properties` (the row/feature's properties object), `d` (the raw row/feature), and
- * `timestamp` (epoch ms, see `dataFilterExtensionProps`).
+ * `properties` (the row/feature's properties object) and `d` (the raw row/feature).
  */
 export function compileFilterValue(code: string): CompiledFilter {
   const cached = cache.get(code);
@@ -35,15 +38,11 @@ export function compileFilterValue(code: string): CompiledFilter {
   try {
     const body = /\breturn\b/.test(code) ? code : `return (${code});`;
     // eslint-disable-next-line no-new-func -- the whole point: users write the filter's JS
-    const raw = new Function('properties', 'd', 'timestamp', body) as (
-      properties: Record<string, unknown>,
-      d: RowLike,
-      timestamp: number,
-    ) => unknown;
+    const raw = new Function('properties', 'd', body) as (properties: Record<string, unknown>, d: RowLike) => unknown;
     compiled = {
-      fn: (d: RowLike, timestamp: number) => {
+      fn: (d: RowLike) => {
         try {
-          const v = raw(d.properties ?? {}, d, timestamp);
+          const v = raw(d.properties ?? {}, d);
           return typeof v === 'number' && Number.isFinite(v) ? v : 0;
         } catch {
           return 0;
@@ -61,12 +60,12 @@ function filterRows(loaded: LoadedData): RowLike[] {
   return loaded.shape === 'geojson' ? loaded.data.features : loaded.data;
 }
 
-/** Runs `fn` over the currently loaded rows (at the given `timestamp`) to suggest a [min, max] `filterRange`. */
-export function computeFilterRange(loaded: LoadedData, fn: (d: RowLike, timestamp: number) => number, timestamp: number): [number, number] | undefined {
+/** Runs `fn` over the currently loaded rows to suggest a [min, max] `filterRange` ('manual' mode). */
+export function computeFilterRange(loaded: LoadedData, fn: (d: RowLike) => number): [number, number] | undefined {
   let min = Infinity;
   let max = -Infinity;
   for (const row of filterRows(loaded)) {
-    const v = fn(row, timestamp);
+    const v = fn(row);
     if (Number.isFinite(v)) {
       min = Math.min(min, v);
       max = Math.max(max, v);
@@ -82,12 +81,11 @@ export interface DataFilterLayerProps {
   filterRange: [number, number];
   /**
    * deck.gl's generic attribute system only recomputes an accessor-driven GPU attribute when
-   * something in `updateTriggers` for that accessor changes — a new `getFilterValue` *function
-   * reference* on its own (which we hand it on every render, since it closes over `ctx.timestamp`)
-   * is not by itself treated as "needs recompute". Confirmed by instrumenting the compiled
-   * function: without this, it was never invoked after the layer's first draw, no matter how
-   * often the code, range, or timestamp changed — filtering appeared to work in testing only
-   * because default/near-default code and small ranges coincidentally matched the frozen result.
+   * something in `updateTriggers` for that accessor changes — reusing the same cached accessor
+   * function (we do, now that it no longer closes over anything per-render) is not by itself
+   * treated as "needs recompute" when its underlying *code* or *range* changes. Confirmed by
+   * instrumenting the compiled function in the browser: without this, it was never invoked again
+   * after the layer's first draw, no matter how often the code or range changed afterwards.
    */
   updateTriggers: { getFilterValue: unknown[] };
 }
@@ -103,22 +101,29 @@ const EXTENSIONS: LayerExtension[] = [new DataFilterExtension({ filterSize: 1 })
 /**
  * `timestamp` resolves to the Timeline widget's current slider position (epoch ms) if one is
  * enabled, otherwise `Date.now()` read once when the layer is (re)built — not a live clock; see
- * `App.tsx`.
+ * `App.tsx`. Only used for 'timeline'-mode filters, to compute `[timestamp - delay, timestamp]`;
+ * `getFilterValue` itself has no access to it (see `DataFilterConfig`).
  */
 export interface DataFilterContext {
   timestamp: number;
 }
 
+/** The [min, max] a filter actually applies right now, given its mode. */
+export function resolveFilterRange(config: DataFilterConfig, ctx: DataFilterContext): [number, number] {
+  return config.mode === 'timeline' ? [ctx.timestamp - config.delay, ctx.timestamp] : config.filterRange;
+}
+
 /** deck.gl layer props that wire up the DataFilterExtension (on every layer, filter on or off). */
 export function dataFilterExtensionProps(config: DataFilterConfig | undefined, ctx: DataFilterContext): DataFilterLayerProps {
   const enabled = config?.enabled ?? false;
+  const filterRange = config ? resolveFilterRange(config, ctx) : DEFAULT_DATA_FILTER.filterRange;
   return {
     extensions: EXTENSIONS,
     filterEnabled: enabled,
-    filterRange: config?.filterRange ?? DEFAULT_DATA_FILTER.filterRange,
+    filterRange,
     // Omitted (not just `undefined`-valued) when disabled, so deck.gl's own default accessor
     // (a constant) applies — an explicit `getFilterValue: undefined` key fails its own validation.
-    ...(enabled ? { getFilterValue: (d: RowLike) => compileFilterValue(config!.getFilterValue).fn(d, ctx.timestamp) } : {}),
-    updateTriggers: { getFilterValue: [enabled, config?.getFilterValue, ctx.timestamp] },
+    ...(enabled ? { getFilterValue: compileFilterValue(config!.getFilterValue).fn } : {}),
+    updateTriggers: { getFilterValue: [enabled, config?.getFilterValue, filterRange[0], filterRange[1]] },
   };
 }

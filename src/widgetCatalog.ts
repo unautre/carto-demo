@@ -96,7 +96,7 @@ export const WIDGET_KINDS: Record<WidgetKind, WidgetKindInfo> = {
     label: 'Timeline', icon: '▸',
     hint:
       "A time slider (deck.gl preview widget), always full-width at the bottom — TimelineWidget ignores `placement`. " +
-      "Its position/range is available as `timestamp`/`timeRangeStart`/`timeRangeEnd` in every layer's data filter code and ClickHouse query.",
+      "Drives a layer's 'timeline'-mode data filter range and a ClickHouse query's `{{timestamp}}`/`{{timeRangeStart}}`/`{{timeRangeEnd}}` placeholders.",
     defaultPlacement: 'fill',
     create: (placement, ctx) => {
       const t = ctx.timeline!;

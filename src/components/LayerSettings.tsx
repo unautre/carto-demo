@@ -1,7 +1,7 @@
 import { useState, type Dispatch } from 'react';
 import { DECK_KINDS, KINDS } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
-import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER } from '../layerExtensions';
+import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../ogc';
 import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, WfsParams, WmsParams } from '../types';
@@ -11,13 +11,11 @@ interface Props {
   layer: LayerNode;
   dispatch: Dispatch<Action>;
   depth: number;
-  /** epoch ms, for the data filter's `timestamp` — see App.tsx */
+  /** epoch ms, used to preview a 'timeline'-mode data filter's current [min, max] — see App.tsx */
   timestamp: number;
-  /** whether `timestamp` currently comes from the Timeline widget rather than "now" */
-  timelineActive: boolean;
 }
 
-export function LayerSettings({ layer, dispatch, depth, timestamp, timelineActive }: Props) {
+export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
   useDataStoreVersion();
   const info = KINDS[layer.kind];
   // For a ClickHouse layer, style controls follow the render kind (e.g. a hexagon render wants a radius slider).
@@ -163,8 +161,8 @@ export function LayerSettings({ layer, dispatch, depth, timestamp, timelineActiv
             />
           </label>
           <p className="muted hint">
-            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers
-            — {timelineActive ? "the Timeline widget's position/range" : 'all three are "now"'}. Re-resolved on Reload, not live.
+            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers —
+            the Timeline widget's position/range if one's enabled, else all three are "now". Re-resolved on Reload, not live.
           </p>
           <div className="field-row">
             <label className="field">
@@ -219,43 +217,74 @@ export function LayerSettings({ layer, dispatch, depth, timestamp, timelineActiv
                 />
               </label>
               {filterError && <div className="error-box">getFilterValue error (every row scores 0 until fixed): {filterError}</div>}
-              <div className="field-row">
-                <label className="field narrow">
-                  <span>Min</span>
-                  <input
-                    type="number"
-                    value={layer.dataFilter.filterRange[0]}
-                    onChange={(e) => setDataFilter({ filterRange: [+e.target.value, layer.dataFilter!.filterRange[1]] })}
-                  />
-                </label>
-                <label className="field narrow">
-                  <span>Max</span>
-                  <input
-                    type="number"
-                    value={layer.dataFilter.filterRange[1]}
-                    onChange={(e) => setDataFilter({ filterRange: [layer.dataFilter!.filterRange[0], +e.target.value] })}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="btn small"
-                  disabled={state?.status !== 'ready'}
-                  title={state?.status !== 'ready' ? 'Data is still loading' : 'Run getFilterValue over the loaded rows and use their min/max as the range'}
-                  onClick={() => {
-                    if (state?.status !== 'ready') return;
-                    const { fn, error } = compileFilterValue(layer.dataFilter!.getFilterValue);
-                    setFilterError(error);
-                    const range = computeFilterRange(state.loaded, fn, timestamp);
-                    if (range) setDataFilter({ filterRange: range });
-                  }}
-                >
-                  Set range from data
-                </button>
-              </div>
               <p className="muted hint">
-                Runs once per row; <code>properties</code> is the row's/feature's properties, <code>timestamp</code> is{' '}
-                {timelineActive ? 'the Timeline widget’s current position' : 'now'} (epoch ms). Must return a number — rows outside Min–Max are hidden.
+                Runs once per row; <code>properties</code> is the row's/feature's properties. Must return a number — rows outside the range below are hidden.
               </p>
+
+              <label className="field">
+                <span>Range</span>
+                <select value={layer.dataFilter.mode} onChange={(e) => setDataFilter({ mode: e.target.value as DataFilterConfig['mode'] })}>
+                  <option value="manual">Manual [min, max]</option>
+                  <option value="timeline">Timeline-relative [timestamp − delay, timestamp]</option>
+                </select>
+              </label>
+
+              {layer.dataFilter.mode === 'manual' ? (
+                <div className="field-row">
+                  <label className="field narrow">
+                    <span>Min</span>
+                    <input
+                      type="number"
+                      value={layer.dataFilter.filterRange[0]}
+                      onChange={(e) => setDataFilter({ filterRange: [+e.target.value, layer.dataFilter!.filterRange[1]] })}
+                    />
+                  </label>
+                  <label className="field narrow">
+                    <span>Max</span>
+                    <input
+                      type="number"
+                      value={layer.dataFilter.filterRange[1]}
+                      onChange={(e) => setDataFilter({ filterRange: [layer.dataFilter!.filterRange[0], +e.target.value] })}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={state?.status !== 'ready'}
+                    title={state?.status !== 'ready' ? 'Data is still loading' : 'Run getFilterValue over the loaded rows and use their min/max as the range'}
+                    onClick={() => {
+                      if (state?.status !== 'ready') return;
+                      const { fn, error } = compileFilterValue(layer.dataFilter!.getFilterValue);
+                      setFilterError(error);
+                      const range = computeFilterRange(state.loaded, fn);
+                      if (range) setDataFilter({ filterRange: range });
+                    }}
+                  >
+                    Set range from data
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <label className="field narrow">
+                    <span>Delay (ms)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={layer.dataFilter.delay}
+                      onChange={(e) => setDataFilter({ delay: Math.max(0, +e.target.value) })}
+                    />
+                  </label>
+                  <p className="muted hint">
+                    Shows rows from <code>timestamp − delay</code> to <code>timestamp</code>, where <code>timestamp</code> is the Timeline widget's
+                    position (or "now" if it's off). Currently{' '}
+                    {(() => {
+                      const [min, max] = resolveFilterRange(layer.dataFilter, { timestamp });
+                      return `${new Date(min).toLocaleString()} – ${new Date(max).toLocaleString()}`;
+                    })()}
+                    .
+                  </p>
+                </>
+              )}
             </>
           )}
         </>
