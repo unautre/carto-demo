@@ -254,6 +254,27 @@ button, input, select { font: inherit; color: inherit; }
 .basemap-picker button { border: 0; background: none; padding: 6px 10px; cursor: pointer; font-size: 12px; }
 .basemap-picker button:hover { background: var(--bg-hover); }
 .basemap-picker button.active { background: var(--accent); color: #fff; }
+.widgets-toggle { position: absolute; top: 54px; right: 12px; }
+.widgets-toggle > .btn { box-shadow: var(--shadow); background: var(--bg); }
+.widgets-toggle > .btn.active-count { border-color: var(--accent); color: var(--accent); }
+.widgets-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 240px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.widgets-menu-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.widgets-menu-row .check { flex: 1; min-width: 0; }
+.widgets-menu-row select { font-size: 11px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); flex: 0 0 auto; }
+.widgets-menu-row select:disabled { opacity: 0.5; }
 .attribution {
   position: absolute;
   right: 0;

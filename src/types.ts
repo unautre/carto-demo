@@ -1,3 +1,5 @@
+import type { WidgetPlacement } from '@deck.gl/core';
+
 export type DeckLayerKind = 'scatterplot' | 'geojson' | 'path' | 'arc' | 'hexagon' | 'heatmap';
 export type LayerKind = DeckLayerKind | 'wms' | 'wfs' | 'clickhouse';
 
@@ -94,3 +96,12 @@ export interface DropTarget {
   id: string;
   position: DropPosition;
 }
+
+export type WidgetKind = 'zoom' | 'compass' | 'resetView' | 'gimbal' | 'fullscreen' | 'screenshot' | 'theme' | 'loading' | 'scale';
+
+export interface WidgetConfig {
+  enabled: boolean;
+  placement: WidgetPlacement;
+}
+
+export type WidgetSettings = Record<WidgetKind, WidgetConfig>;

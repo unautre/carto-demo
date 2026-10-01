@@ -3,11 +3,13 @@ import DeckGL from '@deck.gl/react';
 import { FlyToInterpolator, WebMercatorViewport, type MapViewState, type PickingInfo } from '@deck.gl/core';
 import { AddLayerDialog } from './components/AddLayerDialog';
 import { LayerPanel } from './components/LayerPanel';
+import { WidgetsPanel } from './components/WidgetsPanel';
 import { dataStore, unionBounds, useDataStoreVersion } from './data';
 import { clickInfoKinds, createFeatureInfoWidget } from './featureInfo';
 import { basemapLayer, BASEMAPS, toDeckLayer, type BasemapId } from './deckLayers';
 import { useAppState } from './state';
 import { allLayers, renderOrder } from './tree';
+import { WIDGET_KIND_ORDER, WIDGET_KINDS } from './widgetCatalog';
 import type { Bounds, LayerNode, TreeNode } from './types';
 
 const INITIAL_VIEW: MapViewState = { longitude: -122.3, latitude: 37.78, zoom: 10, pitch: 0, bearing: 0 };
@@ -20,7 +22,7 @@ async function layerBounds(layer: LayerNode): Promise<Bounds | undefined> {
 }
 
 export default function App() {
-  const [{ tree, basemap }, dispatch] = useAppState();
+  const [{ tree, basemap, widgets: widgetSettings }, dispatch] = useAppState();
   const [viewState, setViewState] = useState<MapViewState>(INITIAL_VIEW);
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState('');
@@ -53,7 +55,14 @@ export default function App() {
   const drawnRef = useRef(drawn);
   drawnRef.current = drawn;
   const featureInfo = useMemo(() => createFeatureInfoWidget((id) => drawnRef.current.find((l) => l.id === id)), []);
-  const widgets = useMemo(() => [featureInfo.widget], [featureInfo]);
+  const extraWidgets = useMemo(
+    () =>
+      WIDGET_KIND_ORDER.filter((kind) => widgetSettings[kind].enabled).map((kind) =>
+        WIDGET_KINDS[kind].create(widgetSettings[kind].placement, { initialViewState: INITIAL_VIEW }),
+      ),
+    [widgetSettings],
+  );
+  const widgets = useMemo(() => [featureInfo.widget, ...extraWidgets], [featureInfo, extraWidgets]);
   useEffect(() => featureInfo.closeUnless(new Set(layers.map((l) => l.id))), [featureInfo, layers]);
 
   const flash = (msg: string) => {
@@ -113,6 +122,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        <WidgetsPanel settings={widgetSettings} dispatch={dispatch} />
         <div className="attribution">{BASEMAPS[basemap]?.attribution}</div>
         {notice && <div className="toast">{notice}</div>}
         <button
