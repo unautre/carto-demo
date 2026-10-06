@@ -12,6 +12,7 @@ const manual = (patch: Partial<DataFilterConfig>): DataFilterConfig => ({
   mode: 'manual',
   filterRange: [0, 1],
   delay: { value: 1000, unit: 'ms' },
+  fadeOpacity: false,
   ...patch,
 });
 
@@ -112,9 +113,10 @@ describe('dataFilterExtensionProps', () => {
     // props update on the same layer id, not a fresh layer) would silently do nothing.
     const ctx = { timestamp: T };
     for (const props of [dataFilterExtensionProps(undefined, ctx), dataFilterExtensionProps(manual({ enabled: false }), ctx)]) {
-      expect(props.extensions).toHaveLength(1);
+      expect(props.extensions).toHaveLength(2);
       expect(props.filterEnabled).toBe(false);
       expect(props.getFilterValue).toBeUndefined();
+      expect(props.fadeFilterEnabled).toBe(false);
     }
   });
 
@@ -125,7 +127,7 @@ describe('dataFilterExtensionProps', () => {
 
   it('wires up filterEnabled, getFilterValue and filterRange when enabled (manual mode)', () => {
     const props = dataFilterExtensionProps(manual({ getFilterValue: 'return properties.v;', filterRange: [0, 10] }), { timestamp: T });
-    expect(props.extensions).toHaveLength(1);
+    expect(props.extensions).toHaveLength(2);
     expect(props.filterEnabled).toBe(true);
     expect(props.filterRange).toEqual([0, 10]);
     expect(props.getFilterValue?.({ properties: { v: 42 } })).toBe(42);
@@ -155,5 +157,36 @@ describe('dataFilterExtensionProps', () => {
     expect(disabled.updateTriggers.getFilterValue).not.toEqual(base.updateTriggers.getFilterValue);
     // A timestamp change in timeline mode changes the *resolved* filterRange, which is what's keyed on.
     expect(timelineMode.updateTriggers.getFilterValue).not.toEqual(base.updateTriggers.getFilterValue);
+  });
+
+  describe('fade (FilterFadeExtension) props', () => {
+    const ctx = { timestamp: T };
+
+    it('is off when the data filter is disabled or absent, regardless of fadeOpacity', () => {
+      for (const props of [
+        dataFilterExtensionProps(undefined, ctx),
+        dataFilterExtensionProps(manual({ enabled: false, fadeOpacity: true }), ctx),
+      ]) {
+        expect(props.fadeFilterEnabled).toBe(false);
+      }
+    });
+
+    it('is off when the filter is enabled but fadeOpacity is not', () => {
+      expect(dataFilterExtensionProps(manual({ fadeOpacity: false }), ctx).fadeFilterEnabled).toBe(false);
+    });
+
+    it('is on, with fadeFilterRange matching the resolved filter range, when both are enabled', () => {
+      const props = dataFilterExtensionProps(manual({ fadeOpacity: true, filterRange: [3, 7] }), ctx);
+      expect(props.fadeFilterEnabled).toBe(true);
+      expect(props.fadeFilterRange).toEqual([3, 7]);
+    });
+
+    it('follows the resolved (not raw) range in timeline mode', () => {
+      const props = dataFilterExtensionProps(
+        manual({ fadeOpacity: true, mode: 'timeline', delay: { value: 2000, unit: 'ms' } }),
+        { timestamp: T },
+      );
+      expect(props.fadeFilterRange).toEqual([T - 2000, T]);
+    });
   });
 });

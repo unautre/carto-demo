@@ -408,6 +408,20 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
                   </p>
                 </>
               )}
+
+              <label className="check" title="Computed on the GPU, in a shader — not a JS accessor">
+                <input
+                  type="checkbox"
+                  checked={layer.dataFilter.fadeOpacity}
+                  onChange={(e) => setDataFilter({ fadeOpacity: e.target.checked })}
+                />
+                Fade opacity across range (GPU)
+              </label>
+              {layer.dataFilter.fadeOpacity && (
+                <p className="muted hint">
+                  Rows near the start of the range above fade toward 0% opacity; rows near its end are at 100%. Stacks with the layer's own Opacity.
+                </p>
+              )}
             </>
           )}
         </>
