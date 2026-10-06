@@ -151,7 +151,15 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
           onChange={(patch) => setProp('opacity', patch)}
         />
         {layer.kind !== 'wms' && (
-          <ColorPropertyField prop={layer.style.color} accessorCapable={accessorCapable.has('color')} onChange={(patch) => setProp('color', patch)} />
+          <ColorPropertyField
+            // Only call it "Fill colour" where a separate "Line colour" is also shown, otherwise
+            // (Path/Arc, where this colour IS the line — there's no fill at all) that label would
+            // be actively wrong, not just redundant.
+            label={renderInfo.controls.includes('lineColor') ? 'Fill colour' : 'Colour'}
+            prop={layer.style.color}
+            accessorCapable={accessorCapable.has('color')}
+            onChange={(patch) => setProp('color', patch)}
+          />
         )}
       </div>
 
