@@ -3,6 +3,7 @@ import { DataFilterExtension } from '@deck.gl/extensions';
 import type { RowLike } from './accessors';
 import type { LoadedData } from './data';
 import { durationMs } from './duration';
+import FilterFadeExtension from './filterFadeExtension';
 import type { DataFilterConfig } from './types';
 
 export const DEFAULT_DATA_FILTER: DataFilterConfig = {
@@ -11,6 +12,7 @@ export const DEFAULT_DATA_FILTER: DataFilterConfig = {
   mode: 'manual',
   filterRange: [-1, 1],
   delay: { value: 1, unit: 'days' },
+  fadeOpacity: false,
 };
 
 export interface CompiledFilter {
@@ -75,6 +77,8 @@ export interface DataFilterLayerProps {
   filterEnabled: boolean;
   getFilterValue?: (d: RowLike) => number;
   filterRange: [number, number];
+  fadeFilterEnabled: boolean;
+  fadeFilterRange: [number, number];
   /**
    * deck.gl's generic attribute system only recomputes an accessor-driven GPU attribute when
    * something in `updateTriggers` for that accessor changes — reusing the same cached accessor
@@ -87,12 +91,14 @@ export interface DataFilterLayerProps {
 }
 
 /**
- * A single extension instance shared by every layer. deck.gl only wires an extension's GPU
- * attribute up when a layer is first created (`initializeState`); a later props update that adds
- * `extensions` to an already-existing layer id is a no-op. So every vector layer carries this
- * extension from creation, and the filter is switched on/off with its own `filterEnabled` prop.
+ * Two extension instances shared by every layer. deck.gl only wires an extension's GPU attribute up
+ * when a layer is first created (`initializeState`); a later props update that adds `extensions` to
+ * an already-existing layer id is a no-op. So every vector layer carries both from creation, each
+ * switched on/off with its own `filterEnabled`/`fadeFilterEnabled` prop. FilterFadeExtension reads
+ * the same `getFilterValue` accessor as DataFilterExtension (see its own doc comment) — the two are
+ * meant to always be attached together, which they are here.
  */
-const EXTENSIONS: LayerExtension[] = [new DataFilterExtension({ filterSize: 1 })];
+const EXTENSIONS: LayerExtension[] = [new DataFilterExtension({ filterSize: 1 }), new FilterFadeExtension()];
 
 /**
  * `timestamp` resolves to the Timeline widget's current slider position (epoch ms) if one is
@@ -109,7 +115,7 @@ export function resolveFilterRange(config: DataFilterConfig, ctx: DataFilterCont
   return config.mode === 'timeline' ? [ctx.timestamp - durationMs(config.delay), ctx.timestamp] : config.filterRange;
 }
 
-/** deck.gl layer props that wire up the DataFilterExtension (on every layer, filter on or off). */
+/** deck.gl layer props that wire up the DataFilterExtension and FilterFadeExtension (on every layer, both on or off). */
 export function dataFilterExtensionProps(config: DataFilterConfig | undefined, ctx: DataFilterContext): DataFilterLayerProps {
   const enabled = config?.enabled ?? false;
   const filterRange = config ? resolveFilterRange(config, ctx) : DEFAULT_DATA_FILTER.filterRange;
@@ -117,6 +123,10 @@ export function dataFilterExtensionProps(config: DataFilterConfig | undefined, c
     extensions: EXTENSIONS,
     filterEnabled: enabled,
     filterRange,
+    // The fade only makes sense relative to a range the filter is actually applying, so it's gated
+    // on the filter itself being enabled too, not just its own checkbox.
+    fadeFilterEnabled: enabled && (config?.fadeOpacity ?? false),
+    fadeFilterRange: filterRange,
     // Omitted (not just `undefined`-valued) when disabled, so deck.gl's own default accessor
     // (a constant) applies — an explicit `getFilterValue: undefined` key fails its own validation.
     ...(enabled ? { getFilterValue: compileFilterValue(config!.getFilterValue).fn } : {}),

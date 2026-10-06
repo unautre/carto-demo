@@ -85,6 +85,11 @@ export interface DataFilterConfig {
   filterRange: [number, number];
   /** trailing window length. Used when `mode` is 'timeline'. */
   delay: Duration;
+  /**
+   * GPU-shader-computed opacity fade across the active range: 0% at its start, 100% at its end.
+   * Independent of (and stacks multiplicatively with) the layer's own opacity. See `FilterFadeExtension`.
+   */
+  fadeOpacity: boolean;
 }
 
 export interface LayerNode {
