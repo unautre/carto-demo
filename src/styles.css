@@ -41,12 +41,19 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- panel ---------- */
 .panel {
   width: 380px;
+  min-width: 240px;
+  max-width: 720px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
   background: var(--bg);
   z-index: 1;
+  /* Drag the bottom-right corner (on the divider with the map) to resize. `overflow` must be
+     something other than `visible` for `resize` to take effect at all — safe here since the panel's
+     own content (header/tree/footer) already manages its own scrolling and never needs this to scroll. */
+  resize: horizontal;
+  overflow: auto;
 }
 .panel-header { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
 .panel-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
@@ -386,7 +393,7 @@ button, input, select { font: inherit; color: inherit; }
 
 @media (max-width: 720px) {
   .app { flex-direction: column-reverse; }
-  .panel { width: 100%; height: 45%; border-right: 0; border-top: 1px solid var(--border); }
+  .panel { width: 100%; max-width: none; height: 45%; border-right: 0; border-top: 1px solid var(--border); resize: none; }
   .actions { display: flex; position: static; transform: none; background: none; padding: 0; }
   .kind-grid { grid-template-columns: repeat(2, 1fr); }
 }
