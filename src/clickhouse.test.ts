@@ -10,7 +10,7 @@ const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000, bb
 const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): LayerNode => ({
   type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', url,
-  style: { color: pv('#ffc300'), opacity: pv(1), radius: pv(100), lineWidth: pv(2) },
+  style: { color: pv('#ffc300'), opacity: pv(1), radius: pv(100), lineWidth: pv(2), lineColor: pv('#ffc300') },
   clickhouse,
 });
 

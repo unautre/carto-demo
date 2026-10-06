@@ -107,6 +107,7 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
   // kind below that uses this. (Hexagon/Heatmap are the exception — see their cases.) This replaces
   // this app's previous fixed fill/line alpha constants (90/200/255) with the user's own opacity.
   const color = resolveColorWithAlpha(style.color, style.opacity);
+  const lineColor = resolveColorWithAlpha(style.lineColor, style.opacity);
   const radius = resolveNumberProperty(style.radius);
   const lineWidth = resolveNumberProperty(style.lineWidth);
   // deck.gl's built-in accessor props (getFillColor, getRadius, …) are diffed by reference, and the
@@ -115,6 +116,7 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
   // for the same reason the data filter's getFilterValue has one (see layerExtensions.ts): this app
   // already hit a case this session where relying on implicit reference-diffing alone silently failed.
   const colorUpdateTriggers = [...colorTrigger(style.color), ...numberTrigger(style.opacity)];
+  const lineColorUpdateTriggers = [...colorTrigger(style.lineColor), ...numberTrigger(style.opacity)];
 
   switch (loaded.shape) {
     case 'geojson':
@@ -124,7 +126,7 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
         filled: true,
         stroked: true,
         getFillColor: color,
-        getLineColor: color,
+        getLineColor: lineColor,
         getPointRadius: radius,
         pointRadiusMinPixels: 3,
         getLineWidth: lineWidth,
@@ -132,7 +134,7 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
         updateTriggers: {
           ...common.updateTriggers,
           getFillColor: colorUpdateTriggers,
-          getLineColor: colorUpdateTriggers,
+          getLineColor: lineColorUpdateTriggers,
           getPointRadius: numberTrigger(style.radius),
           getLineWidth: numberTrigger(style.lineWidth),
         },
@@ -206,9 +208,17 @@ function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerS
         radiusMinPixels: 2,
         stroked: true,
         getFillColor: color,
-        getLineColor: [255, 255, 255, 220],
+        getLineColor: lineColor,
+        getLineWidth: lineWidth,
+        lineWidthUnits: 'pixels',
         lineWidthMinPixels: 1,
-        updateTriggers: { ...common.updateTriggers, getRadius: numberTrigger(style.radius), getFillColor: colorUpdateTriggers },
+        updateTriggers: {
+          ...common.updateTriggers,
+          getRadius: numberTrigger(style.radius),
+          getFillColor: colorUpdateTriggers,
+          getLineColor: lineColorUpdateTriggers,
+          getLineWidth: numberTrigger(style.lineWidth),
+        },
       });
   }
 }

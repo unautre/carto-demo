@@ -61,16 +61,18 @@ function ColorPropertyField({
   prop,
   accessorCapable,
   onChange,
+  label = 'Colour',
 }: {
   prop: PropertyValue<string>;
   accessorCapable: boolean;
   onChange: (patch: Partial<PropertyValue<string>>) => void;
+  label?: string;
 }) {
   const error = colorPropertyError(prop);
   return (
     <label className={`field ${prop.mode === 'constant' ? 'color-field' : ''}`}>
       <span className="prop-header">
-        <span>Colour</span>
+        <span>{label}</span>
         {accessorCapable && <PropertyModeSelect mode={prop.mode} onChange={(mode) => onChange({ mode })} />}
       </span>
       {prop.mode === 'constant' ? (
@@ -165,17 +167,29 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
           onChange={(patch) => setProp('radius', patch)}
         />
       )}
-      {renderInfo.controls.includes('lineWidth') && (
-        <NumberPropertyField
-          label="Line width (px)"
-          prop={layer.style.lineWidth}
-          accessorCapable={accessorCapable.has('lineWidth')}
-          min={0.5}
-          max={12}
-          step={0.5}
-          placeholder="return properties.value ?? 2;"
-          onChange={(patch) => setProp('lineWidth', patch)}
-        />
+      {(renderInfo.controls.includes('lineWidth') || renderInfo.controls.includes('lineColor')) && (
+        <div className="field-row">
+          {renderInfo.controls.includes('lineWidth') && (
+            <NumberPropertyField
+              label="Line width (px)"
+              prop={layer.style.lineWidth}
+              accessorCapable={accessorCapable.has('lineWidth')}
+              min={0.5}
+              max={12}
+              step={0.5}
+              placeholder="return properties.value ?? 2;"
+              onChange={(patch) => setProp('lineWidth', patch)}
+            />
+          )}
+          {renderInfo.controls.includes('lineColor') && (
+            <ColorPropertyField
+              label="Line colour"
+              prop={layer.style.lineColor}
+              accessorCapable={accessorCapable.has('lineColor')}
+              onChange={(patch) => setProp('lineColor', patch)}
+            />
+          )}
+        </div>
       )}
 
       {layer.wms && (

@@ -17,14 +17,14 @@ export interface KindInfo {
   sampleUrl?: string;
   style: LayerStyle;
   /** which style controls are meaningful */
-  controls: Array<'radius' | 'lineWidth'>;
+  controls: Array<'radius' | 'lineWidth' | 'lineColor'>;
   radiusLabel?: string;
   /**
    * Which of the always-shown controls (`color`, `opacity`) and shown `controls` can switch to a
    * per-row accessor. Aggregation layers (hexagon/heatmap bin many rows into one visual mark, so
    * there's no single row to read an accessor from) and WMS (raster tiles, no rows at all) get none.
    */
-  accessorCapable: Array<'color' | 'opacity' | 'radius' | 'lineWidth'>;
+  accessorCapable: Array<'color' | 'opacity' | 'radius' | 'lineWidth' | 'lineColor'>;
 }
 
 export const KINDS: Record<LayerKind, KindInfo> = {
@@ -32,23 +32,41 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     label: 'Scatterplot', icon: '●',
     hint: 'Points: GeoJSON, [lng, lat] arrays, or objects with coordinates / lng & lat.',
     sampleUrl: `${SAMPLES}/bart-stations.json`,
-    style: { color: constant('#e4572e', colorAccessorHint), opacity: constant(1, 'return properties.value ?? 1;'), radius: constant(120, 'return properties.value ?? 120;'), lineWidth: constant(1, '') },
-    controls: ['radius'], radiusLabel: 'Radius (m)',
-    accessorCapable: ['color', 'opacity', 'radius'],
+    style: {
+      color: constant('#e4572e', colorAccessorHint),
+      opacity: constant(1, 'return properties.value ?? 1;'),
+      radius: constant(120, 'return properties.value ?? 120;'),
+      lineWidth: constant(1, 'return properties.value ?? 1;'),
+      lineColor: constant('#ffffff', colorAccessorHint),
+    },
+    controls: ['radius', 'lineWidth', 'lineColor'], radiusLabel: 'Radius (m)',
+    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
   },
   geojson: {
     label: 'GeoJSON', icon: '⬟',
     hint: 'Any GeoJSON FeatureCollection (points, lines, polygons).',
     sampleUrl: `${SAMPLES}/bart.geo.json`,
-    style: { color: constant('#2e86ab', colorAccessorHint), opacity: constant(0.9, 'return properties.value ?? 0.9;'), radius: constant(60, 'return properties.value ?? 60;'), lineWidth: constant(2, 'return properties.value ?? 2;') },
-    controls: ['lineWidth', 'radius'], radiusLabel: 'Point radius (m)',
-    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth'],
+    style: {
+      color: constant('#2e86ab', colorAccessorHint),
+      opacity: constant(0.9, 'return properties.value ?? 0.9;'),
+      radius: constant(60, 'return properties.value ?? 60;'),
+      lineWidth: constant(2, 'return properties.value ?? 2;'),
+      lineColor: constant('#2e86ab', colorAccessorHint),
+    },
+    controls: ['lineWidth', 'radius', 'lineColor'], radiusLabel: 'Point radius (m)',
+    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
   },
   path: {
     label: 'Path', icon: '〰',
     hint: 'Lines: GeoJSON LineStrings or objects with a path: [[lng, lat], …].',
     sampleUrl: `${SAMPLES}/bart-lines.json`,
-    style: { color: constant('#6a4c93', colorAccessorHint), opacity: constant(1, 'return properties.value ?? 1;'), radius: constant(0, ''), lineWidth: constant(4, 'return properties.value ?? 4;') },
+    style: {
+      color: constant('#6a4c93', colorAccessorHint),
+      opacity: constant(1, 'return properties.value ?? 1;'),
+      radius: constant(0, ''),
+      lineWidth: constant(4, 'return properties.value ?? 4;'),
+      lineColor: constant('#6a4c93', colorAccessorHint),
+    },
     controls: ['lineWidth'],
     accessorCapable: ['color', 'opacity', 'lineWidth'],
   },
@@ -56,7 +74,13 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     label: 'Arc', icon: '⌒',
     hint: 'Origin–destination pairs: { from, to }, { sourcePosition, targetPosition } or GeoJSON lines.',
     sampleUrl: `${SAMPLES}/bart-segments.json`,
-    style: { color: constant('#f18f01', colorAccessorHint), opacity: constant(0.9, 'return properties.value ?? 0.9;'), radius: constant(0, ''), lineWidth: constant(2, 'return properties.value ?? 2;') },
+    style: {
+      color: constant('#f18f01', colorAccessorHint),
+      opacity: constant(0.9, 'return properties.value ?? 0.9;'),
+      radius: constant(0, ''),
+      lineWidth: constant(2, 'return properties.value ?? 2;'),
+      lineColor: constant('#f18f01', colorAccessorHint),
+    },
     controls: ['lineWidth'],
     accessorCapable: ['color', 'opacity', 'lineWidth'],
   },
@@ -64,7 +88,13 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     label: 'Hexagon bins', icon: '⬢',
     hint: 'Aggregates points into hexagonal bins.',
     sampleUrl: `${SAMPLES}/sf-bike-parking.json`,
-    style: { color: constant('#c73e1d', colorAccessorHint), opacity: constant(0.8, ''), radius: constant(200, ''), lineWidth: constant(1, '') },
+    style: {
+      color: constant('#c73e1d', colorAccessorHint),
+      opacity: constant(0.8, ''),
+      radius: constant(200, ''),
+      lineWidth: constant(1, ''),
+      lineColor: constant('#c73e1d', ''),
+    },
     controls: ['radius'], radiusLabel: 'Hex radius (m)',
     accessorCapable: [],
   },
@@ -72,33 +102,57 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     label: 'Heatmap', icon: '◍',
     hint: 'Density surface from points.',
     sampleUrl: `${SAMPLES}/sf-bike-parking.json`,
-    style: { color: constant('#d7263d', colorAccessorHint), opacity: constant(0.85, ''), radius: constant(30, ''), lineWidth: constant(1, '') },
+    style: {
+      color: constant('#d7263d', colorAccessorHint),
+      opacity: constant(0.85, ''),
+      radius: constant(30, ''),
+      lineWidth: constant(1, ''),
+      lineColor: constant('#d7263d', ''),
+    },
     controls: ['radius'], radiusLabel: 'Radius (px)',
     accessorCapable: [],
   },
   wms: {
     label: 'WMS', icon: '▦',
     hint: 'OGC Web Map Service, requested as 256px tiles in EPSG:3857.',
-    style: { color: constant('#888888', ''), opacity: constant(0.8, ''), radius: constant(0, ''), lineWidth: constant(1, '') },
+    style: {
+      color: constant('#888888', ''),
+      opacity: constant(0.8, ''),
+      radius: constant(0, ''),
+      lineWidth: constant(1, ''),
+      lineColor: constant('#888888', ''),
+    },
     controls: [],
     accessorCapable: [],
   },
   wfs: {
     label: 'WFS', icon: '◇',
     hint: 'OGC Web Feature Service, requested as GeoJSON in EPSG:4326.',
-    style: { color: constant('#1b998b', colorAccessorHint), opacity: constant(0.9, 'return properties.value ?? 0.9;'), radius: constant(80, 'return properties.value ?? 80;'), lineWidth: constant(1.5, 'return properties.value ?? 1.5;') },
-    controls: ['lineWidth', 'radius'], radiusLabel: 'Point radius (m)',
-    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth'],
+    style: {
+      color: constant('#1b998b', colorAccessorHint),
+      opacity: constant(0.9, 'return properties.value ?? 0.9;'),
+      radius: constant(80, 'return properties.value ?? 80;'),
+      lineWidth: constant(1.5, 'return properties.value ?? 1.5;'),
+      lineColor: constant('#1b998b', colorAccessorHint),
+    },
+    controls: ['lineWidth', 'radius', 'lineColor'], radiusLabel: 'Point radius (m)',
+    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
   },
   clickhouse: {
     label: 'ClickHouse', icon: '▧',
     hint: 'Rows from a ClickHouse SQL query (HTTP interface), drawn with the chosen render layer.',
-    style: { color: constant('#ffc300', colorAccessorHint), opacity: constant(0.85, 'return properties.value ?? 0.85;'), radius: constant(100, 'return properties.value ?? 100;'), lineWidth: constant(2, 'return properties.value ?? 2;') },
-    controls: ['radius', 'lineWidth'], radiusLabel: 'Radius',
+    style: {
+      color: constant('#ffc300', colorAccessorHint),
+      opacity: constant(0.85, 'return properties.value ?? 0.85;'),
+      radius: constant(100, 'return properties.value ?? 100;'),
+      lineWidth: constant(2, 'return properties.value ?? 2;'),
+      lineColor: constant('#ffc300', colorAccessorHint),
+    },
+    controls: ['radius', 'lineWidth', 'lineColor'], radiusLabel: 'Radius',
     // A ClickHouse layer's accessor capability actually follows its chosen render kind (see
     // LayerSettings.tsx's `renderInfo`), not this entry — kept non-empty here only so a ClickHouse
     // layer itself (before a render kind narrows it down) doesn't look accessor-incapable by default.
-    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth'],
+    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
   },
 };
 
@@ -146,6 +200,7 @@ export function normalizeLayerStyle(raw: unknown, fallback: LayerStyle): LayerSt
     opacity: normalizePropertyValue(c.opacity, fallback.opacity, isNum),
     radius: normalizePropertyValue(c.radius, fallback.radius, isNum),
     lineWidth: normalizePropertyValue(c.lineWidth, fallback.lineWidth, isNum),
+    lineColor: normalizePropertyValue(c.lineColor, fallback.lineColor, isStr),
   };
 }
 

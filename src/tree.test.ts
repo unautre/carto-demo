@@ -6,7 +6,7 @@ import type { GroupNode, LayerNode, TreeNode } from './types';
 const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const layer = (id: string, visible = true): LayerNode => ({
   type: 'layer', id, name: id, visible, kind: 'scatterplot', url: '',
-  style: { color: pv('#000000'), opacity: pv(1), radius: pv(1), lineWidth: pv(1) },
+  style: { color: pv('#000000'), opacity: pv(1), radius: pv(1), lineWidth: pv(1), lineColor: pv('#000000') },
 });
 const group = (id: string, children: TreeNode[], visible = true): GroupNode => ({
   type: 'group', id, name: id, visible, expanded: true, children,

@@ -6,17 +6,24 @@ describe('normalizeLayerStyle', () => {
   const fallback = KINDS.scatterplot.style;
 
   it('keeps an already-current-shaped style untouched', () => {
-    const style = { color: { mode: 'accessor' as const, value: '#fff', code: 'return "#fff";' }, opacity: { mode: 'constant' as const, value: 0.5, code: '' }, radius: fallback.radius, lineWidth: fallback.lineWidth };
+    const style = {
+      color: { mode: 'accessor' as const, value: '#fff', code: 'return "#fff";' },
+      opacity: { mode: 'constant' as const, value: 0.5, code: '' },
+      radius: fallback.radius,
+      lineWidth: fallback.lineWidth,
+      lineColor: fallback.lineColor,
+    };
     expect(normalizeLayerStyle(style, fallback)).toEqual(style);
   });
 
   it('upgrades a pre-accessor save (the field itself was the raw constant value)', () => {
-    const old = { color: '#112233', opacity: 0.4, radius: 50, lineWidth: 3 };
+    const old = { color: '#112233', opacity: 0.4, radius: 50, lineWidth: 3, lineColor: '#654321' };
     expect(normalizeLayerStyle(old, fallback)).toEqual({
       color: { mode: 'constant', value: '#112233', code: fallback.color.code },
       opacity: { mode: 'constant', value: 0.4, code: fallback.opacity.code },
       radius: { mode: 'constant', value: 50, code: fallback.radius.code },
       lineWidth: { mode: 'constant', value: 3, code: fallback.lineWidth.code },
+      lineColor: { mode: 'constant', value: '#654321', code: fallback.lineColor.code },
     });
   });
 
@@ -27,7 +34,13 @@ describe('normalizeLayerStyle', () => {
       opacity: fallback.opacity,
       radius: fallback.radius,
       lineWidth: fallback.lineWidth,
+      lineColor: fallback.lineColor,
     });
+  });
+
+  it('falls back to the default lineColor for a pre-lineColor save (the field predates this option)', () => {
+    const old = { color: '#112233', opacity: 0.4, radius: 50, lineWidth: 3 };
+    expect(normalizeLayerStyle(old, fallback).lineColor).toEqual(fallback.lineColor);
   });
 
   it('falls back to the default value when a value has the wrong type, but keeps a valid mode/code', () => {

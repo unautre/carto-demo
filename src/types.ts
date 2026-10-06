@@ -28,14 +28,16 @@ export interface PropertyValue<T> {
 }
 
 export interface LayerStyle {
-  /** hex colour, e.g. "#ff8800"; an accessor must return a hex string */
+  /** fill/main hex colour, e.g. "#ff8800"; an accessor must return a hex string */
   color: PropertyValue<string>;
-  /** 0..1 */
+  /** 0..1; shared by both `color` and `lineColor`'s alpha channel */
   opacity: PropertyValue<number>;
   /** metres for scatterplot / hexagon, pixels for heatmap */
   radius: PropertyValue<number>;
   /** pixels */
   lineWidth: PropertyValue<number>;
+  /** stroke/outline hex colour — e.g. a scatterplot point's border, a polygon's outline */
+  lineColor: PropertyValue<string>;
 }
 
 export interface WmsParams {
