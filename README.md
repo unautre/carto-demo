@@ -12,6 +12,7 @@ A small web app: a deck.gl map with a side panel to manage layers.
   - Like most GIS tools, **the top of the list is drawn on top**.
 - **Per-layer settings** (⚙): opacity, colour, radius or line width — each either a fixed value or a per-row JS accessor you write — data or service URL, WMS layers/format/version, WFS type/max features/axis swap/output format, ClickHouse query/render kind/database/credentials, a **data filter** (deck.gl's `DataFilterExtension`, with a JS `getFilterValue` you write and a manual or Timeline-relative range), and Reload.
 - **Zoom to** (⌖) a layer or a whole group. Rename a layer or group by double-clicking its name.
+- The side panel is **resizable**: drag its bottom-right corner (plain CSS `resize: horizontal`, 240–720px) to make room for longer names or a wide accessor code editor.
 - **Basemap**: a row at the top of the layer tree, styled like a layer — a checkbox to show/hide it and a ⚙ to configure its tile URL (any raster XYZ `{z}/{x}/{y}` server), max zoom and attribution. Defaults to OpenStreetMap's own tiles. The layer tree is saved to `localStorage`, and **Reset demo** brings back the sample layers (and the default basemap).
 - **Widgets**: the *Widgets* button (top right) toggles deck.gl's own map-chrome widgets on and off — Zoom, Compass, Reset view, Gimbal, Fullscreen, Screenshot, Widget theme (light/dark), Loading indicator, Scale bar — each with its own corner placement. Settings are saved to `localStorage` like everything else.
 
