@@ -4,10 +4,10 @@ import { FlyToInterpolator, WebMercatorViewport, type MapViewState, type Picking
 import { AddLayerDialog } from './components/AddLayerDialog';
 import { LayerPanel } from './components/LayerPanel';
 import { WidgetsPanel } from './components/WidgetsPanel';
-import type { QueryTemplateContext } from './clickhouse';
+import type { QueryTemplateContext } from './sources/queryTemplate';
 import { dataStore, unionBounds, useDataStoreVersion } from './data';
-import { clickInfoKinds, createFeatureInfoWidget } from './featureInfo';
-import { basemapLayer, toDeckLayer } from './deckLayers';
+import { clickInfoKinds, createFeatureInfoWidget } from './layers/featureInfo';
+import { basemapLayer, toDeckLayer } from './layers/deckLayers';
 import { useAppState } from './state';
 import { allLayers, renderOrder } from './tree';
 import { DEFAULT_TIMELINE_CONFIG, WIDGET_KIND_ORDER, WIDGET_KINDS } from './widgetCatalog';

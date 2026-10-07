@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { colorPropertyError, compileColorAccessor, compileNumberAccessor, numberPropertyError, resolveColorWithAlpha, resolveNumberProperty } from './accessors';
-import type { PropertyValue } from './types';
+import type { PropertyValue } from '../types';
 
 const constant = <T,>(value: T): PropertyValue<T> => ({ mode: 'constant', value, code: '' });
 const accessor = <T,>(code: string, value: T): PropertyValue<T> => ({ mode: 'accessor', value, code });

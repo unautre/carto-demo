@@ -1,5 +1,5 @@
 import { hexToRgb, isValidHexColor, type RGB, type RGBA } from './colors';
-import type { PropertyValue } from './types';
+import type { PropertyValue } from '../types';
 
 export interface RowLike {
   properties?: Record<string, unknown> | null;

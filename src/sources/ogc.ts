@@ -1,4 +1,4 @@
-import type { Bounds, WfsParams, WmsParams } from './types';
+import type { Bounds, WfsParams, WmsParams } from '../types';
 
 const R = 6378137;
 

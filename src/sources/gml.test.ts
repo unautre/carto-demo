@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { _computeBoundsForTests as computeBounds, _normaliseForTests as normalise } from './data';
+import { _computeBoundsForTests as computeBounds, _normaliseForTests as normalise } from '../data';
 import { parseGml } from './gml';
 import { parseWfsOutputFormats, wfsGetFeatureUrl } from './ogc';
 

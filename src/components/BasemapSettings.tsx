@@ -1,5 +1,5 @@
 import { useState, type Dispatch } from 'react';
-import { DEFAULT_BASEMAP } from '../deckLayers';
+import { DEFAULT_BASEMAP } from '../layers/deckLayers';
 import type { Action } from '../state';
 import type { BasemapConfig } from '../types';
 

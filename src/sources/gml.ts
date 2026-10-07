@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, Geometry } from './data';
+import type { Feature, FeatureCollection, Geometry } from '../data';
 
 /**
  * Minimal GML → GeoJSON reader for WFS GetFeature responses (GML 2, 3.1 and 3.2).

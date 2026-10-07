@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_KINDS, makeLayer, RENDER_KINDS, SOURCE_KINDS, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
-import { fetchClickHouseRows, type QueryTemplateContext } from '../clickhouse';
-import { fetchDuckDbRows } from '../duckdb';
-import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
+import { fetchClickHouseRows } from '../sources/clickhouse';
+import { fetchDuckDbRows } from '../sources/duckdb';
+import type { QueryTemplateContext } from '../sources/queryTemplate';
+import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../sources/ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';

@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from 'react';
 import type { WidgetPlacement } from '@deck.gl/core';
 import { defaultTree, makeGroup, normalizeTree } from './catalog';
-import { DEFAULT_BASEMAP, normalizeBasemap } from './deckLayers';
+import { DEFAULT_BASEMAP, normalizeBasemap } from './layers/deckLayers';
 import { findNode, moveNode, removeNode, setAllVisible, ungroup, updateNode } from './tree';
 import { DEFAULT_TIMELINE_CONFIG, defaultWidgetSettings, withWidgetDefaults } from './widgetCatalog';
 import type { BasemapConfig, DropPosition, LayerNode, TimelineConfig, TreeNode, WidgetKind, WidgetSettings } from './types';

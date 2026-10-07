@@ -1,10 +1,10 @@
 import type { LayerExtension } from '@deck.gl/core';
 import { DataFilterExtension } from '@deck.gl/extensions';
 import type { RowLike } from './accessors';
-import type { LoadedData } from './data';
-import { durationMs } from './duration';
+import type { LoadedData } from '../data';
+import { durationMs } from '../duration';
 import FilterFadeExtension from './filterFadeExtension';
-import type { DataFilterConfig } from './types';
+import type { DataFilterConfig } from '../types';
 
 export const DEFAULT_DATA_FILTER: DataFilterConfig = {
   enabled: true,

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LayerNode } from './types';
 
 const fetchDuckDbRows = vi.fn();
-vi.mock('./duckdb', () => ({
+vi.mock('./sources/duckdb', () => ({
   fetchDuckDbRows: (...args: unknown[]) => fetchDuckDbRows(...args),
   duckdbQueryKey: (p: { query: string }) => `duckdb:${p.query}`,
 }));

@@ -1,6 +1,6 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { DataType } from 'apache-arrow';
-import type { DuckDbParams } from './types';
+import type { DuckDbParams } from '../types';
 import { interpolateQuery, type QueryTemplateContext } from './queryTemplate';
 
 /**

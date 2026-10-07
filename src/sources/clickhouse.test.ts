@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { clickhouseQueryUrl, fetchClickHouseRows } from './clickhouse';
-import { dataStore } from './data';
-import type { ClickHouseParams, LayerNode } from './types';
+import { dataStore } from '../data';
+import type { ClickHouseParams, LayerNode } from '../types';
 
 const T = 1_700_000_000_000;
 const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000, bboxWest: -10, bboxSouth: -5, bboxEast: 10, bboxNorth: 5 };

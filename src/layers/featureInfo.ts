@@ -1,6 +1,6 @@
 import type { PickingInfo } from '@deck.gl/core';
 import { InfoWidget } from '@deck.gl/widgets';
-import type { LayerNode } from './types';
+import type { LayerNode } from '../types';
 
 type Props = Record<string, unknown>;
 
