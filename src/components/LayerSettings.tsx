@@ -169,7 +169,7 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
           prop={layer.style.radius}
           accessorCapable={accessorCapable.has('radius')}
           min={renderKind === 'heatmap' ? 5 : 10}
-          max={renderKind === 'heatmap' ? 100 : 1000}
+          max={renderKind === 'heatmap' ? 100 : 10000}
           step={renderKind === 'heatmap' ? 1 : 10}
           placeholder="return properties.value ?? 100;"
           onChange={(patch) => setProp('radius', patch)}
