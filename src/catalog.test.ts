@@ -83,6 +83,19 @@ describe('normalizeLayerSource', () => {
     expect(normalizeLayerSource({ kind: 'clickhouse', clickhouse: { database: 'x' } }).clickhouse).toBeUndefined();
   });
 
+  it('keeps an already-current DuckDB layer', () => {
+    const raw = { kind: 'duckdb', render: 'hexagon', duckdb: { query: 'SELECT 1' } };
+    expect(normalizeLayerSource(raw)).toEqual({ kind: 'duckdb', render: 'hexagon', duckdb: { query: 'SELECT 1' } });
+  });
+
+  it('falls back to scatterplot for a DuckDB layer with no valid render', () => {
+    expect(normalizeLayerSource({ kind: 'duckdb', duckdb: { query: 'SELECT 1' } }).render).toBe('scatterplot');
+  });
+
+  it('drops a corrupt duckdb object (no query) rather than keep a half-formed one', () => {
+    expect(normalizeLayerSource({ kind: 'duckdb', duckdb: { notAQuery: 'x' } }).duckdb).toBeUndefined();
+  });
+
   it("defaults a pre-split WFS layer (no render choice existed) to 'geojson'", () => {
     expect(normalizeLayerSource({ kind: 'wfs' })).toEqual({ kind: 'wfs', render: 'geojson' });
   });

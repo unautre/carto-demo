@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DECK_KINDS, makeLayer, RENDER_KINDS, SOURCE_KINDS, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
 import { fetchClickHouseRows, type QueryTemplateContext } from '../clickhouse';
+import { fetchDuckDbRows } from '../duckdb';
 import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
-type Tab = 'url' | 'wms' | 'wfs' | 'clickhouse';
+type Tab = 'url' | 'wms' | 'wfs' | 'clickhouse' | 'duckdb';
 
 /** Shared by every source's form: a plain dropdown to pick how the rows are drawn. */
 function RenderSelect({ value, onChange }: { value: DeckLayerKind; onChange: (k: DeckLayerKind) => void }) {
@@ -48,9 +49,9 @@ export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
           <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
         <nav className="tabs" role="tablist">
-          {(['url', 'wms', 'wfs', 'clickhouse'] as Tab[]).map((t) => (
+          {(['url', 'wms', 'wfs', 'clickhouse', 'duckdb'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t === 'clickhouse' ? 'ClickHouse' : t.toUpperCase()}
+              {t === 'clickhouse' ? 'ClickHouse' : t === 'duckdb' ? 'DuckDB' : t.toUpperCase()}
             </button>
           ))}
         </nav>
@@ -58,6 +59,7 @@ export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
         {tab === 'wms' && <ServiceForm service="WMS" onAdd={add} />}
         {tab === 'wfs' && <ServiceForm service="WFS" onAdd={add} />}
         {tab === 'clickhouse' && <ClickHouseForm onAdd={add} queryCtx={queryCtx} />}
+        {tab === 'duckdb' && <DuckDbForm onAdd={add} queryCtx={queryCtx} />}
         <label className="check zoom-check">
           <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
           Zoom to the layer after adding
@@ -349,6 +351,67 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
       </label>
       <div className="form-actions">
         <button className="btn primary" type="submit">Add ClickHouse layer</button>
+      </div>
+    </form>
+  );
+}
+
+function DuckDbForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; queryCtx: QueryTemplateContext }) {
+  const [query, setQuery] = useState("SELECT * FROM (VALUES (-122.27, 37.80), (-122.42, 37.77)) AS t(lon, lat)");
+  const [render, setRender] = useState<DeckLayerKind>(SOURCE_KINDS.duckdb.defaultRender!);
+  const [name, setName] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState('');
+  const [error, setError] = useState('');
+
+  const test = async () => {
+    setTesting(true);
+    setError('');
+    setResult('');
+    try {
+      const r = await fetchDuckDbRows({ query }, queryCtx);
+      setResult(`${r.rows} row${r.rows === 1 ? '' : 's'} · columns: ${Object.keys(r.data[0] ?? {}).join(', ') || '—'}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <form
+      className="form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onAdd(makeLayer('duckdb', render, name.trim() || 'DuckDB layer', '', { duckdb: { query } }));
+      }}
+    >
+      <p className="muted hint">Runs entirely in the browser via DuckDB-WASM — no server, no credentials.</p>
+      <RenderSelect value={render} onChange={setRender} />
+      <p className="muted hint">{RENDER_KINDS[render].hint}</p>
+      <label className="field">
+        <span>SQL query</span>
+        <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />
+      </label>
+      <p className="muted hint">
+        <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
+        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".{' '}
+        <code>{'{{bboxWest}}'}</code>, <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> are
+        replaced with the map's current extent in degrees.
+      </p>
+      <div className="field-row">
+        <button type="button" className="btn" onClick={test} disabled={testing || !query.trim()}>
+          {testing ? 'Running…' : 'Test query'}
+        </button>
+        {result && <span className="muted">{result}</span>}
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <label className="field">
+        <span>Name</span>
+        <input value={name} placeholder="DuckDB layer" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <div className="form-actions">
+        <button className="btn primary" type="submit">Add DuckDB layer</button>
       </div>
     </form>
   );

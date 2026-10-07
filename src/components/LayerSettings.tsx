@@ -6,7 +6,7 @@ import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../ogc';
-import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
+import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, DuckDbParams, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
 function PropertyModeSelect({ mode, onChange }: { mode: PropertyMode; onChange: (mode: PropertyMode) => void }) {
@@ -116,6 +116,8 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
   const setWfs = (patch: Partial<WfsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wfs: { ...layer.wfs!, ...patch } } });
   const setClickhouse = (patch: Partial<ClickHouseParams>) =>
     dispatch({ type: 'update', id: layer.id, patch: { clickhouse: { ...layer.clickhouse!, ...patch } } });
+  const setDuckdb = (patch: Partial<DuckDbParams>) =>
+    dispatch({ type: 'update', id: layer.id, patch: { duckdb: { ...layer.duckdb!, ...patch } } });
   const setDataFilter = (patch: Partial<DataFilterConfig>) =>
     dispatch({ type: 'update', id: layer.id, patch: { dataFilter: { ...(layer.dataFilter ?? DEFAULT_DATA_FILTER), ...patch } } });
   const [filterError, setFilterError] = useState(() => (layer.dataFilter ? compileFilterValue(layer.dataFilter.getFilterValue).error : undefined));
@@ -124,19 +126,21 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
     <div className="settings" style={{ marginLeft: 28 + depth * 18 }}>
       {state?.status === 'error' && <div className="error-box">{state.error}</div>}
 
-      <label className="field">
-        <span>{layer.kind === 'wms' || layer.kind === 'wfs' ? 'Service URL' : layer.kind === 'clickhouse' ? 'HTTP endpoint' : 'Data URL'}</span>
-        <input
-          type="url"
-          defaultValue={layer.url}
-          key={layer.url}
-          onBlur={(e) => {
-            const url = e.currentTarget.value.trim();
-            if (url && url !== layer.url) dispatch({ type: 'update', id: layer.id, patch: { url } });
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        />
-      </label>
+      {layer.kind !== 'duckdb' && (
+        <label className="field">
+          <span>{layer.kind === 'wms' || layer.kind === 'wfs' ? 'Service URL' : layer.kind === 'clickhouse' ? 'HTTP endpoint' : 'Data URL'}</span>
+          <input
+            type="url"
+            defaultValue={layer.url}
+            key={layer.url}
+            onBlur={(e) => {
+              const url = e.currentTarget.value.trim();
+              if (url && url !== layer.url) dispatch({ type: 'update', id: layer.id, patch: { url } });
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          />
+        </label>
+      )}
 
       {layer.kind !== 'wms' && (
         <label className="field">
@@ -315,6 +319,30 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
               />
             </label>
           </div>
+        </>
+      )}
+
+      {layer.duckdb && (
+        <>
+          <label className="field">
+            <span>SQL query</span>
+            <textarea
+              rows={4}
+              defaultValue={layer.duckdb.query}
+              key={layer.duckdb.query}
+              onBlur={(e) => {
+                const query = e.currentTarget.value.trim();
+                if (query && query !== layer.duckdb!.query) setDuckdb({ query });
+              }}
+            />
+          </label>
+          <p className="muted hint">
+            Runs entirely in the browser via DuckDB-WASM — no server, no credentials.{' '}
+            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers —
+            the Timeline widget's position/range if one's enabled, else all three are "now". <code>{'{{bboxWest}}'}</code>,{' '}
+            <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> resolve to the map's current extent
+            in degrees. Re-resolved on Reload, not live.
+          </p>
         </>
       )}
 

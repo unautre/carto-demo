@@ -10,7 +10,7 @@ export interface Duration {
 
 export type DeckLayerKind = 'scatterplot' | 'geojson' | 'path' | 'arc' | 'hexagon' | 'heatmap';
 /** Where a layer's rows come from — independent of how they're drawn (see `DeckLayerKind`/`LayerNode.render`). */
-export type SourceKind = 'url' | 'wms' | 'wfs' | 'clickhouse';
+export type SourceKind = 'url' | 'wms' | 'wfs' | 'clickhouse' | 'duckdb';
 
 /** [west, south, east, north] in degrees */
 export type Bounds = [number, number, number, number];
@@ -70,6 +70,11 @@ export interface ClickHouseParams {
   password?: string;
 }
 
+export interface DuckDbParams {
+  /** SQL query run against an in-browser DuckDB-WASM engine; result columns are interpreted the same way as `LayerNode.render`'s deck.gl layer */
+  query: string;
+}
+
 export interface DataFilterConfig {
   enabled: boolean;
   /**
@@ -100,12 +105,13 @@ export interface LayerNode {
   kind: SourceKind;
   /** how rows are drawn — a real choice for every source except 'wms' (raster tiles draw themselves) */
   render?: DeckLayerKind;
-  /** data URL for deck.gl layers, service endpoint for WMS / WFS / ClickHouse */
+  /** data URL for deck.gl layers, service endpoint for WMS / WFS / ClickHouse; unused for 'duckdb' */
   url: string;
   style: LayerStyle;
   wms?: WmsParams;
   wfs?: WfsParams;
   clickhouse?: ClickHouseParams;
+  duckdb?: DuckDbParams;
   /** deck.gl DataFilterExtension, applied to every non-WMS layer kind */
   dataFilter?: DataFilterConfig;
   /** known extent, e.g. from GetCapabilities */
