@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch } from 'react';
 import type { WidgetPlacement } from '@deck.gl/core';
-import { UNIT_LABEL, UNIT_ORDER } from '../duration';
+import { UNIT_LABEL, UNIT_MS, UNIT_ORDER } from '../duration';
 import { DEFAULT_TIMELINE_CONFIG, PLACEMENTS, WIDGET_KIND_ORDER, WIDGET_KINDS } from '../widgetCatalog';
 import type { Action } from '../state';
 import type { TimelineConfig, TimeUnit, WidgetSettings } from '../types';
@@ -108,6 +108,16 @@ function TimelineSettings({ timeline, dispatch }: { timeline: TimelineConfig; di
           />
         </label>
       </div>
+      <button
+        type="button"
+        className="btn small"
+        onClick={() => {
+          const now = Date.now();
+          set({ timeRange: [now - UNIT_MS.days, now] });
+        }}
+      >
+        Last 24h
+      </button>
       <div className="field-row">
         <label className="field narrow">
           <span>Step</span>
