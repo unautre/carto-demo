@@ -1,6 +1,6 @@
 import { useState, type Dispatch } from 'react';
 import { colorPropertyError, numberPropertyError } from '../accessors';
-import { DECK_KINDS, KINDS } from '../catalog';
+import { DECK_KINDS, displayInfo, RENDER_KINDS, renderKindInfo } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
 import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
@@ -104,14 +104,14 @@ interface Props {
 
 export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
   useDataStoreVersion();
-  const info = KINDS[layer.kind];
-  // For a ClickHouse layer, style controls follow the render kind (e.g. a hexagon render wants a radius slider).
-  const renderKind: DeckLayerKind = layer.kind === 'clickhouse' ? (layer.clickhouse?.render ?? 'scatterplot') : (layer.kind as DeckLayerKind);
-  const renderInfo = layer.kind === 'clickhouse' ? KINDS[renderKind] : info;
+  const info = displayInfo(layer);
+  const renderKind: DeckLayerKind = layer.render ?? 'scatterplot';
+  const renderInfo = renderKindInfo(layer);
   const state = dataStore.get(layer);
   const setProp = <K extends keyof LayerStyle>(key: K, patch: Partial<LayerStyle[K]>) =>
     dispatch({ type: 'updateStyle', id: layer.id, patch: { [key]: { ...layer.style[key], ...patch } } as Partial<LayerNode['style']> });
   const accessorCapable = new Set(renderInfo.accessorCapable);
+  const setRender = (render: DeckLayerKind) => dispatch({ type: 'update', id: layer.id, patch: { render } });
   const setWms = (patch: Partial<WmsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wms: { ...layer.wms!, ...patch } } });
   const setWfs = (patch: Partial<WfsParams>) => dispatch({ type: 'update', id: layer.id, patch: { wfs: { ...layer.wfs!, ...patch } } });
   const setClickhouse = (patch: Partial<ClickHouseParams>) =>
@@ -137,6 +137,15 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
       </label>
+
+      {layer.kind !== 'wms' && (
+        <label className="field">
+          <span>Render as</span>
+          <select value={renderKind} onChange={(e) => setRender(e.target.value as DeckLayerKind)}>
+            {DECK_KINDS.map((k) => <option key={k} value={k}>{RENDER_KINDS[k].label}</option>)}
+          </select>
+        </label>
+      )}
 
       <div className="field-row">
         <NumberPropertyField
@@ -260,12 +269,6 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
 
       {layer.clickhouse && (
         <>
-          <label className="field">
-            <span>Render as</span>
-            <select value={layer.clickhouse.render} onChange={(e) => setClickhouse({ render: e.target.value as DeckLayerKind })}>
-              {DECK_KINDS.map((k) => <option key={k} value={k}>{KINDS[k].label}</option>)}
-            </select>
-          </label>
           <label className="field">
             <span>SQL query</span>
             <textarea

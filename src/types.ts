@@ -9,7 +9,8 @@ export interface Duration {
 }
 
 export type DeckLayerKind = 'scatterplot' | 'geojson' | 'path' | 'arc' | 'hexagon' | 'heatmap';
-export type LayerKind = DeckLayerKind | 'wms' | 'wfs' | 'clickhouse';
+/** Where a layer's rows come from — independent of how they're drawn (see `DeckLayerKind`/`LayerNode.render`). */
+export type SourceKind = 'url' | 'wms' | 'wfs' | 'clickhouse';
 
 /** [west, south, east, north] in degrees */
 export type Bounds = [number, number, number, number];
@@ -62,13 +63,11 @@ export interface WfsParams {
 }
 
 export interface ClickHouseParams {
-  /** SQL query; result columns are interpreted the same way as `render`'s deck.gl layer (lng/lat, path, source/target, or GeoJSON) */
+  /** SQL query; result columns are interpreted the same way as `LayerNode.render`'s deck.gl layer (lng/lat, path, source/target, or GeoJSON) */
   query: string;
   database?: string;
   username?: string;
   password?: string;
-  /** deck.gl layer used to draw the query's rows */
-  render: DeckLayerKind;
 }
 
 export interface DataFilterConfig {
@@ -97,7 +96,10 @@ export interface LayerNode {
   id: string;
   name: string;
   visible: boolean;
-  kind: LayerKind;
+  /** where rows come from */
+  kind: SourceKind;
+  /** how rows are drawn — a real choice for every source except 'wms' (raster tiles draw themselves) */
+  render?: DeckLayerKind;
   /** data URL for deck.gl layers, service endpoint for WMS / WFS / ClickHouse */
   url: string;
   style: LayerStyle;

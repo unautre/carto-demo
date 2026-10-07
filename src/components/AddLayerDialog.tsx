@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DECK_KINDS, KINDS, makeLayer, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
+import { DECK_KINDS, makeLayer, RENDER_KINDS, SOURCE_KINDS, WFS_PRESETS, WMS_PRESETS, type ServicePreset } from '../catalog';
 import { fetchClickHouseRows, type QueryTemplateContext } from '../clickhouse';
 import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
-type Tab = 'deck' | 'wms' | 'wfs' | 'clickhouse';
+type Tab = 'url' | 'wms' | 'wfs' | 'clickhouse';
+
+/** Shared by every source's form: a plain dropdown to pick how the rows are drawn. */
+function RenderSelect({ value, onChange }: { value: DeckLayerKind; onChange: (k: DeckLayerKind) => void }) {
+  return (
+    <label className="field">
+      <span>Render as</span>
+      <select value={value} onChange={(e) => onChange(e.target.value as DeckLayerKind)}>
+        {DECK_KINDS.map((k) => <option key={k} value={k}>{RENDER_KINDS[k].label}</option>)}
+      </select>
+    </label>
+  );
+}
 
 interface Props {
   onAdd: (layer: LayerNode, zoom: boolean) => void;
@@ -15,7 +27,7 @@ interface Props {
 }
 
 export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
-  const [tab, setTab] = useState<Tab>('deck');
+  const [tab, setTab] = useState<Tab>('url');
   const [zoom, setZoom] = useState(true);
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -36,13 +48,13 @@ export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
           <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
         <nav className="tabs" role="tablist">
-          {(['deck', 'wms', 'wfs', 'clickhouse'] as Tab[]).map((t) => (
+          {(['url', 'wms', 'wfs', 'clickhouse'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-              {t === 'deck' ? 'deck.gl layer' : t === 'clickhouse' ? 'ClickHouse' : t.toUpperCase()}
+              {t === 'clickhouse' ? 'ClickHouse' : t.toUpperCase()}
             </button>
           ))}
         </nav>
-        {tab === 'deck' && <DeckForm onAdd={add} />}
+        {tab === 'url' && <UrlForm onAdd={add} />}
         {tab === 'wms' && <ServiceForm service="WMS" onAdd={add} />}
         {tab === 'wfs' && <ServiceForm service="WFS" onAdd={add} />}
         {tab === 'clickhouse' && <ClickHouseForm onAdd={add} queryCtx={queryCtx} />}
@@ -55,16 +67,16 @@ export function AddLayerDialog({ onAdd, onClose, queryCtx }: Props) {
   );
 }
 
-function DeckForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
-  const [kind, setKind] = useState<DeckLayerKind>('scatterplot');
+function UrlForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
+  const [render, setRender] = useState<DeckLayerKind>('scatterplot');
   const [name, setName] = useState('');
-  const [url, setUrl] = useState(KINDS.scatterplot.sampleUrl!);
-  const samples = new Set(DECK_KINDS.map((k) => KINDS[k].sampleUrl));
+  const [url, setUrl] = useState(RENDER_KINDS.scatterplot.sampleUrl!);
+  const samples = new Set(DECK_KINDS.map((k) => RENDER_KINDS[k].sampleUrl));
 
   const pick = (k: DeckLayerKind) => {
-    setKind(k);
+    setRender(k);
     // Keep a URL the user typed; swap sample URLs for the new kind's sample.
-    if (!url || samples.has(url)) setUrl(KINDS[k].sampleUrl!);
+    if (!url || samples.has(url)) setUrl(RENDER_KINDS[k].sampleUrl!);
   };
 
   return (
@@ -72,29 +84,29 @@ function DeckForm({ onAdd }: { onAdd: (l: LayerNode) => void }) {
       className="form"
       onSubmit={(e) => {
         e.preventDefault();
-        onAdd(makeLayer(kind, name.trim() || `${KINDS[kind].label} layer`, url.trim()));
+        onAdd(makeLayer('url', render, name.trim() || `${RENDER_KINDS[render].label} layer`, url.trim()));
       }}
     >
       <div className="kind-grid">
         {DECK_KINDS.map((k) => (
-          <button type="button" key={k} className={`kind-card ${kind === k ? 'active' : ''}`} onClick={() => pick(k)}>
-            <span className="kind-icon big" style={{ color: KINDS[k].style.color.value }}>{KINDS[k].icon}</span>
-            {KINDS[k].label}
+          <button type="button" key={k} className={`kind-card ${render === k ? 'active' : ''}`} onClick={() => pick(k)}>
+            <span className="kind-icon big" style={{ color: RENDER_KINDS[k].style.color.value }}>{RENDER_KINDS[k].icon}</span>
+            {RENDER_KINDS[k].label}
           </button>
         ))}
       </div>
-      <p className="muted hint">{KINDS[kind].hint}</p>
+      <p className="muted hint">{RENDER_KINDS[render].hint}</p>
       <label className="field">
         <span>Name</span>
-        <input value={name} placeholder={`${KINDS[kind].label} layer`} onChange={(e) => setName(e.target.value)} />
+        <input value={name} placeholder={`${RENDER_KINDS[render].label} layer`} onChange={(e) => setName(e.target.value)} />
       </label>
       <label className="field">
         <span>Data URL (JSON / GeoJSON, CORS-enabled)</span>
         <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
       </label>
-      <button type="button" className="link" onClick={() => setUrl(KINDS[kind].sampleUrl!)}>Use sample data</button>
+      <button type="button" className="link" onClick={() => setUrl(RENDER_KINDS[render].sampleUrl!)}>Use sample data</button>
       <div className="form-actions">
-        <button className="btn primary" type="submit">Add {KINDS[kind].label} layer</button>
+        <button className="btn primary" type="submit">Add {RENDER_KINDS[render].label} layer</button>
       </div>
     </form>
   );
@@ -114,6 +126,7 @@ function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: La
   const [swapXY, setSwapXY] = useState(false);
   const [format, setFormat] = useState('image/png');
   const [outputFormat, setOutputFormat] = useState(WFS_JSON_FORMAT);
+  const [render, setRender] = useState<DeckLayerKind>(SOURCE_KINDS.wfs.defaultRender!);
 
   const applyPreset = (p: ServicePreset) => {
     setUrl(p.url);
@@ -161,10 +174,10 @@ function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: La
     const title = name.trim() || chosen.map((l) => l.title).join(', ') || layerNames.join(', ');
     if (service === 'WMS') {
       const version = caps?.version === '1.1.1' ? '1.1.1' : '1.3.0';
-      onAdd(makeLayer('wms', title, url.trim(), { bounds, wms: { layers: layerNames.join(','), styles: '', format, transparent: true, version } }));
+      onAdd(makeLayer('wms', undefined, title, url.trim(), { bounds, wms: { layers: layerNames.join(','), styles: '', format, transparent: true, version } }));
     } else {
       const version = caps?.version.startsWith('1.') ? '1.1.0' : '2.0.0';
-      onAdd(makeLayer('wfs', title, url.trim(), { bounds, wfs: { typeName: layerNames[0], version, maxFeatures, swapXY, outputFormat } }));
+      onAdd(makeLayer('wfs', render, title, url.trim(), { bounds, wfs: { typeName: layerNames[0], version, maxFeatures, swapXY, outputFormat } }));
     }
   };
 
@@ -246,6 +259,7 @@ function ServiceForm({ service, onAdd }: { service: 'WMS' | 'WFS'; onAdd: (l: La
       </div>
       {service === 'WFS' && (
         <div className="field-row">
+          <RenderSelect value={render} onChange={setRender} />
           <WfsFormatSelect value={outputFormat} onChange={setOutputFormat} serverFormats={caps?.outputFormats} />
         </div>
       )}
@@ -268,7 +282,7 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
 
-  const params = { query, database: database.trim() || undefined, username: username.trim() || undefined, password: password || undefined, render };
+  const params = { query, database: database.trim() || undefined, username: username.trim() || undefined, password: password || undefined };
 
   const test = async () => {
     setTesting(true);
@@ -289,7 +303,7 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
       className="form"
       onSubmit={(e) => {
         e.preventDefault();
-        onAdd(makeLayer('clickhouse', name.trim() || 'ClickHouse layer', url.trim(), { clickhouse: params }));
+        onAdd(makeLayer('clickhouse', render, name.trim() || 'ClickHouse layer', url.trim(), { clickhouse: params }));
       }}
     >
       <label className="field">
@@ -310,13 +324,8 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
       </div>
-      <label className="field">
-        <span>Render as</span>
-        <select value={render} onChange={(e) => setRender(e.target.value as DeckLayerKind)}>
-          {DECK_KINDS.map((k) => <option key={k} value={k}>{KINDS[k].label}</option>)}
-        </select>
-      </label>
-      <p className="muted hint">{KINDS[render].hint}</p>
+      <RenderSelect value={render} onChange={setRender} />
+      <p className="muted hint">{RENDER_KINDS[render].hint}</p>
       <label className="field">
         <span>SQL query</span>
         <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />

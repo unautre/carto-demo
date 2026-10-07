@@ -1,5 +1,5 @@
 import { mapTree, newId } from './tree';
-import type { DeckLayerKind, LayerKind, LayerNode, LayerStyle, PropertyMode, PropertyValue, TreeNode } from './types';
+import type { DeckLayerKind, LayerNode, LayerStyle, PropertyMode, PropertyValue, SourceKind, TreeNode } from './types';
 
 const SAMPLES = 'https://raw.githubusercontent.com/visgl/deck.gl-data/master/website';
 
@@ -10,7 +10,7 @@ function constant<T>(value: T, code: string): PropertyValue<T> {
 
 const colorAccessorHint = "return properties.value > 0 ? '#e4572e' : '#2e86ab';";
 
-export interface KindInfo {
+export interface RenderKindInfo {
   label: string;
   icon: string;
   hint: string;
@@ -22,12 +22,13 @@ export interface KindInfo {
   /**
    * Which of the always-shown controls (`color`, `opacity`) and shown `controls` can switch to a
    * per-row accessor. Aggregation layers (hexagon/heatmap bin many rows into one visual mark, so
-   * there's no single row to read an accessor from) and WMS (raster tiles, no rows at all) get none.
+   * there's no single row to read an accessor from) get none.
    */
   accessorCapable: Array<'color' | 'opacity' | 'radius' | 'lineWidth' | 'lineColor'>;
 }
 
-export const KINDS: Record<LayerKind, KindInfo> = {
+/** How a layer's rows are drawn — independent of where they came from (`SourceKind`, below). */
+export const RENDER_KINDS: Record<DeckLayerKind, RenderKindInfo> = {
   scatterplot: {
     label: 'Scatterplot', icon: '●',
     hint: 'Points: GeoJSON, [lng, lat] arrays, or objects with coordinates / lng & lat.',
@@ -112,51 +113,83 @@ export const KINDS: Record<LayerKind, KindInfo> = {
     controls: ['radius'], radiusLabel: 'Radius (px)',
     accessorCapable: [],
   },
+};
+
+export const DECK_KINDS: DeckLayerKind[] = ['scatterplot', 'geojson', 'path', 'arc', 'hexagon', 'heatmap'];
+
+/**
+ * Shape-compatible with `RenderKindInfo` (minus `sampleUrl`, which is a render-kind-only concept)
+ * so every consumer can treat `layerInfo()`'s result uniformly without special-casing WMS, the only
+ * source with no render kind to fall back on.
+ */
+export interface SourceKindInfo {
+  label: string;
+  icon: string;
+  hint: string;
+  /** default render kind for a newly added layer of this source; absent for 'wms' (no render choice at all) */
+  defaultRender?: DeckLayerKind;
+  /**
+   * Fallback style, only actually used for 'wms' (which has no render kind to borrow a style from).
+   * For every other source a new layer's style comes from `RENDER_KINDS[render].style` instead.
+   */
+  style: LayerStyle;
+  /** always empty at runtime: a source itself (as opposed to its render kind) never has meaningful style controls */
+  controls: Array<'radius' | 'lineWidth' | 'lineColor'>;
+  radiusLabel?: string;
+  accessorCapable: Array<'color' | 'opacity' | 'radius' | 'lineWidth' | 'lineColor'>;
+}
+
+const neutralStyle: LayerStyle = {
+  color: constant('#888888', ''),
+  opacity: constant(0.8, ''),
+  radius: constant(0, ''),
+  lineWidth: constant(1, ''),
+  lineColor: constant('#888888', ''),
+};
+
+/** Where a layer's rows come from — independent of how they're drawn (`RENDER_KINDS`, above). */
+export const SOURCE_KINDS: Record<SourceKind, SourceKindInfo> = {
+  url: {
+    label: 'URL', icon: '◎',
+    hint: 'A CORS-enabled JSON/GeoJSON URL, shaped to match the render kind chosen below.',
+    defaultRender: 'scatterplot',
+    style: neutralStyle, controls: [], accessorCapable: [],
+  },
   wms: {
     label: 'WMS', icon: '▦',
     hint: 'OGC Web Map Service, requested as 256px tiles in EPSG:3857.',
-    style: {
-      color: constant('#888888', ''),
-      opacity: constant(0.8, ''),
-      radius: constant(0, ''),
-      lineWidth: constant(1, ''),
-      lineColor: constant('#888888', ''),
-    },
-    controls: [],
-    accessorCapable: [],
+    style: neutralStyle, controls: [], accessorCapable: [],
   },
   wfs: {
     label: 'WFS', icon: '◇',
     hint: 'OGC Web Feature Service, requested as GeoJSON in EPSG:4326.',
-    style: {
-      color: constant('#1b998b', colorAccessorHint),
-      opacity: constant(0.9, 'return properties.value ?? 0.9;'),
-      radius: constant(80, 'return properties.value ?? 80;'),
-      lineWidth: constant(1.5, 'return properties.value ?? 1.5;'),
-      lineColor: constant('#1b998b', colorAccessorHint),
-    },
-    controls: ['lineWidth', 'radius', 'lineColor'], radiusLabel: 'Point radius (m)',
-    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
+    defaultRender: 'geojson',
+    style: neutralStyle, controls: [], accessorCapable: [],
   },
   clickhouse: {
     label: 'ClickHouse', icon: '▧',
-    hint: 'Rows from a ClickHouse SQL query (HTTP interface), drawn with the chosen render layer.',
-    style: {
-      color: constant('#ffc300', colorAccessorHint),
-      opacity: constant(0.85, 'return properties.value ?? 0.85;'),
-      radius: constant(100, 'return properties.value ?? 100;'),
-      lineWidth: constant(2, 'return properties.value ?? 2;'),
-      lineColor: constant('#ffc300', colorAccessorHint),
-    },
-    controls: ['radius', 'lineWidth', 'lineColor'], radiusLabel: 'Radius',
-    // A ClickHouse layer's accessor capability actually follows its chosen render kind (see
-    // LayerSettings.tsx's `renderInfo`), not this entry — kept non-empty here only so a ClickHouse
-    // layer itself (before a render kind narrows it down) doesn't look accessor-incapable by default.
-    accessorCapable: ['color', 'opacity', 'radius', 'lineWidth', 'lineColor'],
+    hint: 'Rows from a ClickHouse SQL query (HTTP interface), drawn with the chosen render kind.',
+    defaultRender: 'scatterplot',
+    style: neutralStyle, controls: [], accessorCapable: [],
   },
 };
 
-export const DECK_KINDS: DeckLayerKind[] = ['scatterplot', 'geojson', 'path', 'arc', 'hexagon', 'heatmap'];
+/**
+ * The catalog info to *display* for a layer (tree-row icon/tag, the settings-panel footer hint):
+ * the render kind's for a plain URL source (there's nothing more specific to say — "Scatterplot" is
+ * the interesting fact), but the source's own for WMS/WFS/ClickHouse ("ClickHouse" is more useful at
+ * a glance than whatever it happens to be rendered as). Not the same thing as which `RenderKindInfo`
+ * actually governs a layer's style controls — see `renderKindInfo` below — the two match for a plain
+ * URL source but diverge for the others, intentionally.
+ */
+export function displayInfo(node: Pick<LayerNode, 'kind' | 'render'>): RenderKindInfo | SourceKindInfo {
+  return node.kind === 'url' ? RENDER_KINDS[node.render ?? 'scatterplot'] : SOURCE_KINDS[node.kind];
+}
+
+/** The `RenderKindInfo` governing a layer's style controls (radius/lineWidth/lineColor/accessorCapable) — always its chosen render kind, or WMS's own (empty) info for the one source with no render kind at all. */
+export function renderKindInfo(node: Pick<LayerNode, 'kind' | 'render'>): RenderKindInfo | SourceKindInfo {
+  return node.kind === 'wms' ? SOURCE_KINDS.wms : RENDER_KINDS[node.render ?? 'scatterplot'];
+}
 
 export interface ServicePreset { label: string; url: string; layer: string }
 
@@ -170,8 +203,15 @@ export const WFS_PRESETS: ServicePreset[] = [
   { label: 'IGN Géoplateforme – French regions', url: 'https://data.geopf.fr/wfs/ows', layer: 'ADMINEXPRESS-COG-CARTO-PE.LATEST:region' },
 ];
 
-export function makeLayer(kind: LayerKind, name: string, url: string, extra: Partial<LayerNode> = {}): LayerNode {
-  return { type: 'layer', id: newId('layer'), name, visible: true, kind, url, style: { ...KINDS[kind].style }, ...extra };
+export function makeLayer(
+  kind: SourceKind,
+  render: DeckLayerKind | undefined,
+  name: string,
+  url: string,
+  extra: Partial<LayerNode> = {},
+): LayerNode {
+  const style = render ? RENDER_KINDS[render].style : SOURCE_KINDS[kind].style;
+  return { type: 'layer', id: newId('layer'), name, visible: true, kind, render, url, style: { ...style }, ...extra };
 }
 
 export function makeGroup(name: string, children: TreeNode[] = []): TreeNode {
@@ -204,31 +244,67 @@ export function normalizeLayerStyle(raw: unknown, fallback: LayerStyle): LayerSt
   };
 }
 
-/** Upgrades every layer's `style` in a saved tree — see `normalizeLayerStyle`. */
+const RENDER_KIND_SET = new Set<string>(DECK_KINDS);
+const isDeckLayerKind = (v: unknown): v is DeckLayerKind => typeof v === 'string' && RENDER_KIND_SET.has(v);
+
+/**
+ * Upgrades a saved layer node to the current {kind: SourceKind, render?: DeckLayerKind} shape.
+ * Before this split, `kind` was itself one of the deck.gl render kinds directly for a plain URL
+ * layer ('scatterplot', 'path', …), and a ClickHouse layer's render kind lived nested inside
+ * `clickhouse.render` instead of at the top level — both upgrade into the new shape here.
+ */
+export function normalizeLayerSource(raw: unknown): Pick<LayerNode, 'kind' | 'render' | 'clickhouse'> {
+  const c = (raw ?? {}) as { kind?: unknown; render?: unknown; clickhouse?: { render?: unknown; [k: string]: unknown } };
+  if (isDeckLayerKind(c.kind)) return { kind: 'url', render: c.kind };
+  if (c.kind === 'clickhouse') {
+    const ch = c.clickhouse;
+    const render = isDeckLayerKind(c.render) ? c.render : isDeckLayerKind(ch?.render) ? ch!.render : 'scatterplot';
+    const clickhouse: LayerNode['clickhouse'] = ch && typeof ch.query === 'string'
+      ? {
+          query: ch.query,
+          database: typeof ch.database === 'string' ? ch.database : undefined,
+          username: typeof ch.username === 'string' ? ch.username : undefined,
+          password: typeof ch.password === 'string' ? ch.password : undefined,
+        }
+      : undefined;
+    return { kind: 'clickhouse', render, clickhouse };
+  }
+  if (c.kind === 'wfs') return { kind: 'wfs', render: isDeckLayerKind(c.render) ? c.render : 'geojson' };
+  if (c.kind === 'wms') return { kind: 'wms', render: undefined };
+  // Already-current 'url' shape, or anything unrecognised: keep render if valid, else fall back.
+  return { kind: 'url', render: isDeckLayerKind(c.render) ? c.render : 'scatterplot' };
+}
+
+/** Upgrades every layer in a saved tree to the current source/render/style shape — see `normalizeLayerSource`/`normalizeLayerStyle`. */
 export function normalizeTree(tree: TreeNode[]): TreeNode[] {
-  return mapTree(tree, (node) => (node.type === 'layer' ? { ...node, style: normalizeLayerStyle(node.style, KINDS[node.kind].style) } : node));
+  return mapTree(tree, (node) => {
+    if (node.type !== 'layer') return node;
+    const source = normalizeLayerSource(node);
+    const fallbackStyle = source.render ? RENDER_KINDS[source.render].style : SOURCE_KINDS[source.kind].style;
+    return { ...node, ...source, style: normalizeLayerStyle(node.style, fallbackStyle) };
+  });
 }
 
 export function defaultTree(): TreeNode[] {
   const hidden = { visible: false };
   return [
     makeGroup('BART network', [
-      makeLayer('scatterplot', 'Stations', KINDS.scatterplot.sampleUrl!),
-      makeLayer('arc', 'Station segments', KINDS.arc.sampleUrl!, hidden),
-      makeLayer('path', 'Lines', KINDS.path.sampleUrl!),
+      makeLayer('url', 'scatterplot', 'Stations', RENDER_KINDS.scatterplot.sampleUrl!),
+      makeLayer('url', 'arc', 'Station segments', RENDER_KINDS.arc.sampleUrl!, hidden),
+      makeLayer('url', 'path', 'Lines', RENDER_KINDS.path.sampleUrl!),
     ]),
     makeGroup('Bike parking', [
-      makeLayer('hexagon', 'Racks (hexagons)', KINDS.hexagon.sampleUrl!),
-      makeLayer('heatmap', 'Racks (heatmap)', KINDS.heatmap.sampleUrl!, hidden),
+      makeLayer('url', 'hexagon', 'Racks (hexagons)', RENDER_KINDS.hexagon.sampleUrl!),
+      makeLayer('url', 'heatmap', 'Racks (heatmap)', RENDER_KINDS.heatmap.sampleUrl!, hidden),
     ]),
-    makeLayer('geojson', 'BART zones (GeoJSON)', KINDS.geojson.sampleUrl!, hidden),
+    makeLayer('url', 'geojson', 'BART zones (GeoJSON)', RENDER_KINDS.geojson.sampleUrl!, hidden),
     makeGroup('OGC services', [
-      makeLayer('wfs', 'French regions (WFS)', WFS_PRESETS[0].url, {
+      makeLayer('wfs', 'geojson', 'French regions (WFS)', WFS_PRESETS[0].url, {
         visible: false,
         wfs: { typeName: WFS_PRESETS[0].layer, version: '2.0.0', maxFeatures: 1000, swapXY: false },
         bounds: [-5.2, 41.3, 9.6, 51.1],
       }),
-      makeLayer('wms', 'OpenStreetMap (WMS)', WMS_PRESETS[0].url, {
+      makeLayer('wms', undefined, 'OpenStreetMap (WMS)', WMS_PRESETS[0].url, {
         visible: false,
         wms: { layers: WMS_PRESETS[0].layer, styles: '', format: 'image/png', transparent: true, version: '1.3.0' },
       }),

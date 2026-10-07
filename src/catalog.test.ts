@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { KINDS, normalizeLayerStyle, normalizeTree } from './catalog';
+import { normalizeLayerSource, normalizeLayerStyle, normalizeTree, RENDER_KINDS } from './catalog';
 import type { GroupNode, LayerNode } from './types';
 
 describe('normalizeLayerStyle', () => {
-  const fallback = KINDS.scatterplot.style;
+  const fallback = RENDER_KINDS.scatterplot.style;
 
   it('keeps an already-current-shaped style untouched', () => {
     const style = {
@@ -54,18 +54,81 @@ describe('normalizeLayerStyle', () => {
   });
 });
 
+describe('normalizeLayerSource', () => {
+  it('upgrades a pre-split deck.gl kind (kind WAS the render kind) to {kind: url, render}', () => {
+    for (const k of ['scatterplot', 'geojson', 'path', 'arc', 'hexagon', 'heatmap'] as const) {
+      expect(normalizeLayerSource({ kind: k })).toEqual({ kind: 'url', render: k });
+    }
+  });
+
+  it('lifts a pre-split ClickHouse render out of the nested clickhouse object', () => {
+    const raw = { kind: 'clickhouse', clickhouse: { query: 'SELECT 1', database: 'default', render: 'path' } };
+    expect(normalizeLayerSource(raw)).toEqual({
+      kind: 'clickhouse',
+      render: 'path',
+      clickhouse: { query: 'SELECT 1', database: 'default', username: undefined, password: undefined },
+    });
+  });
+
+  it('keeps an already-current ClickHouse layer (top-level render, no nested render) untouched', () => {
+    const raw = { kind: 'clickhouse', render: 'hexagon', clickhouse: { query: 'SELECT 1' } };
+    expect(normalizeLayerSource(raw)).toEqual({ kind: 'clickhouse', render: 'hexagon', clickhouse: { query: 'SELECT 1', database: undefined, username: undefined, password: undefined } });
+  });
+
+  it('falls back to scatterplot for a ClickHouse layer with no valid render anywhere', () => {
+    expect(normalizeLayerSource({ kind: 'clickhouse', clickhouse: { query: 'SELECT 1' } }).render).toBe('scatterplot');
+  });
+
+  it('drops a corrupt clickhouse object (no query) rather than keep a half-formed one', () => {
+    expect(normalizeLayerSource({ kind: 'clickhouse', clickhouse: { database: 'x' } }).clickhouse).toBeUndefined();
+  });
+
+  it("defaults a pre-split WFS layer (no render choice existed) to 'geojson'", () => {
+    expect(normalizeLayerSource({ kind: 'wfs' })).toEqual({ kind: 'wfs', render: 'geojson' });
+  });
+
+  it('keeps an explicit WFS render if one was already saved', () => {
+    expect(normalizeLayerSource({ kind: 'wfs', render: 'hexagon' })).toEqual({ kind: 'wfs', render: 'hexagon' });
+  });
+
+  it('gives WMS no render at all', () => {
+    expect(normalizeLayerSource({ kind: 'wms', render: 'scatterplot' })).toEqual({ kind: 'wms', render: undefined });
+  });
+
+  it('falls back to {kind: url, render: scatterplot} for missing/unrecognised input', () => {
+    expect(normalizeLayerSource(undefined)).toEqual({ kind: 'url', render: 'scatterplot' });
+    expect(normalizeLayerSource({ kind: 'bogus' })).toEqual({ kind: 'url', render: 'scatterplot' });
+  });
+
+  it('keeps an already-current url layer\'s render', () => {
+    expect(normalizeLayerSource({ kind: 'url', render: 'arc' })).toEqual({ kind: 'url', render: 'arc' });
+  });
+});
+
 describe('normalizeTree', () => {
-  const layer = (id: string, style: unknown): LayerNode =>
-    ({ type: 'layer', id, name: id, visible: true, kind: 'scatterplot', url: '', style }) as unknown as LayerNode;
+  const layer = (id: string, extra: Record<string, unknown>): LayerNode => ({ type: 'layer', id, name: id, visible: true, url: '', ...extra }) as unknown as LayerNode;
   const group = (id: string, children: LayerNode[]): GroupNode => ({ type: 'group', id, name: id, visible: true, expanded: true, children });
 
-  it('upgrades every layer in the tree, including inside groups, and leaves groups otherwise untouched', () => {
-    const tree = [layer('a', { color: '#fff', opacity: 1, radius: 1, lineWidth: 1 }), group('g', [layer('b', { color: '#000', opacity: 0.5, radius: 2, lineWidth: 2 })])];
+  it('upgrades every layer in the tree (source shape and style), including inside groups, and leaves groups otherwise untouched', () => {
+    const tree = [
+      layer('a', { kind: 'scatterplot', style: { color: '#fff', opacity: 1, radius: 1, lineWidth: 1 } }),
+      group('g', [layer('b', { kind: 'clickhouse', clickhouse: { query: 'SELECT 1', render: 'path' }, style: { color: '#000', opacity: 0.5, radius: 2, lineWidth: 2 } })]),
+    ];
     const result = normalizeTree(tree);
+
     const a = result[0] as LayerNode;
-    expect(a.style.color).toEqual({ mode: 'constant', value: '#fff', code: KINDS.scatterplot.style.color.code });
+    expect(a.kind).toBe('url');
+    expect(a.render).toBe('scatterplot');
+    expect(a.style.color).toEqual({ mode: 'constant', value: '#fff', code: RENDER_KINDS.scatterplot.style.color.code });
+
     const g = result[1] as GroupNode;
     const b = g.children[0] as LayerNode;
-    expect(b.style.opacity).toEqual({ mode: 'constant', value: 0.5, code: KINDS.scatterplot.style.opacity.code });
+    expect(b.kind).toBe('clickhouse');
+    expect(b.render).toBe('path');
+    expect(b.clickhouse).toEqual({ query: 'SELECT 1', database: undefined, username: undefined, password: undefined });
+    // The raw style value (2) is kept, but the fallback `code` for a legacy constant-only field now
+    // comes from the *render* kind (path), not from whatever the old flat KINDS.clickhouse entry
+    // used to default to.
+    expect(b.style.lineWidth).toEqual({ mode: 'constant', value: 2, code: RENDER_KINDS.path.style.lineWidth.code });
   });
 });
