@@ -172,6 +172,12 @@ export const SOURCE_KINDS: Record<SourceKind, SourceKindInfo> = {
     defaultRender: 'scatterplot',
     style: neutralStyle, controls: [], accessorCapable: [],
   },
+  duckdb: {
+    label: 'DuckDB', icon: '🦆',
+    hint: 'Rows from a SQL query run in-browser by DuckDB-WASM, drawn with the chosen render kind.',
+    defaultRender: 'scatterplot',
+    style: neutralStyle, controls: [], accessorCapable: [],
+  },
 };
 
 /**
@@ -253,8 +259,13 @@ const isDeckLayerKind = (v: unknown): v is DeckLayerKind => typeof v === 'string
  * layer ('scatterplot', 'path', …), and a ClickHouse layer's render kind lived nested inside
  * `clickhouse.render` instead of at the top level — both upgrade into the new shape here.
  */
-export function normalizeLayerSource(raw: unknown): Pick<LayerNode, 'kind' | 'render' | 'clickhouse'> {
-  const c = (raw ?? {}) as { kind?: unknown; render?: unknown; clickhouse?: { render?: unknown; [k: string]: unknown } };
+export function normalizeLayerSource(raw: unknown): Pick<LayerNode, 'kind' | 'render' | 'clickhouse' | 'duckdb'> {
+  const c = (raw ?? {}) as {
+    kind?: unknown;
+    render?: unknown;
+    clickhouse?: { render?: unknown; [k: string]: unknown };
+    duckdb?: { [k: string]: unknown };
+  };
   if (isDeckLayerKind(c.kind)) return { kind: 'url', render: c.kind };
   if (c.kind === 'clickhouse') {
     const ch = c.clickhouse;
@@ -268,6 +279,11 @@ export function normalizeLayerSource(raw: unknown): Pick<LayerNode, 'kind' | 're
         }
       : undefined;
     return { kind: 'clickhouse', render, clickhouse };
+  }
+  if (c.kind === 'duckdb') {
+    const dd = c.duckdb;
+    const duckdbParams: LayerNode['duckdb'] = dd && typeof dd.query === 'string' ? { query: dd.query } : undefined;
+    return { kind: 'duckdb', render: isDeckLayerKind(c.render) ? c.render : 'scatterplot', duckdb: duckdbParams };
   }
   if (c.kind === 'wfs') return { kind: 'wfs', render: isDeckLayerKind(c.render) ? c.render : 'geojson' };
   if (c.kind === 'wms') return { kind: 'wms', render: undefined };

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { fetchClickHouseRows, clickhouseQueryUrl, type QueryTemplateContext } from './clickhouse';
+import { fetchDuckDbRows, duckdbQueryKey } from './duckdb';
 import { parseGml } from './gml';
 import { wfsGetFeatureUrl } from './ogc';
 import type { Bounds, DeckLayerKind, LayerNode } from './types';
@@ -177,6 +178,7 @@ function computeBounds(loaded: LoadedData): Bounds | undefined {
 export function sourceUrl(layer: LayerNode): string {
   if (layer.kind === 'wfs' && layer.wfs) return wfsGetFeatureUrl(layer.url, layer.wfs);
   if (layer.kind === 'clickhouse' && layer.clickhouse) return clickhouseQueryUrl(layer.url, layer.clickhouse);
+  if (layer.kind === 'duckdb' && layer.duckdb) return duckdbQueryKey(layer.duckdb);
   return layer.url;
 }
 
@@ -222,7 +224,7 @@ class DataStore {
     this.emit();
   }
 
-  /** `ctx` only matters for ClickHouse layers (resolves `{{timestamp}}` etc.); defaults to "now"/whole-world when omitted. */
+  /** `ctx` only matters for ClickHouse/DuckDB layers (resolves `{{timestamp}}` etc.); defaults to "now"/whole-world when omitted. */
   load(
     layer: LayerNode,
     ctx: QueryTemplateContext = {
@@ -250,6 +252,8 @@ class DataStore {
         const normKind: DeckLayerKind = layer.render ?? 'scatterplot';
         if (layer.kind === 'clickhouse' && layer.clickhouse) {
           json = (await fetchClickHouseRows(layer.url, layer.clickhouse, ctx)).data;
+        } else if (layer.kind === 'duckdb' && layer.duckdb) {
+          json = (await fetchDuckDbRows(layer.duckdb, ctx)).data;
         } else {
           const res = await fetch(sourceUrl(layer));
           if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
