@@ -12,7 +12,7 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { KINDS } from '../catalog';
+import { displayInfo } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
 import type { Action } from '../state';
 import { allLayers, descendantState, findNode, isSelfOrDescendant, ROOT_END } from '../tree';
@@ -217,7 +217,7 @@ const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0
 
 function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
   const { dispatch, onZoomTo, openSettings, setOpenSettings, timestamp } = useContext(Ctx);
-  const info = KINDS[layer.kind];
+  const info = displayInfo(layer);
   const open = openSettings === layer.id;
   return (
     <>
@@ -310,7 +310,7 @@ function GroupItem({ group, depth }: { group: GroupNode; depth: number }) {
 }
 
 function DragPreview({ node }: { node: TreeNode }) {
-  const icon = node.type === 'group' ? '▤' : KINDS[node.kind].icon;
+  const icon = node.type === 'group' ? '▤' : displayInfo(node).icon;
   const color = node.type === 'layer' ? node.style.color.value : undefined;
   const extra = node.type === 'group' ? ` · ${allLayers(node.children).length} layers` : '';
   return (

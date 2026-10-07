@@ -5,7 +5,7 @@ import type { GroupNode, LayerNode, TreeNode } from './types';
 
 const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const layer = (id: string, visible = true): LayerNode => ({
-  type: 'layer', id, name: id, visible, kind: 'scatterplot', url: '',
+  type: 'layer', id, name: id, visible, kind: 'url', render: 'scatterplot', url: '',
   style: { color: pv('#000000'), opacity: pv(1), radius: pv(1), lineWidth: pv(1), lineColor: pv('#000000') },
 });
 const group = (id: string, children: TreeNode[], visible = true): GroupNode => ({
@@ -60,8 +60,10 @@ describe('normalise', () => {
   });
 
   it('swaps WFS axis order when asked, and computes bounds', () => {
+    // WFS no longer gets special normalise() treatment — it's rendered as whatever DeckLayerKind
+    // the user picks, same as every other source; this is always 'geojson' in practice.
     const fc = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[45, 2], [46, 3], [45, 3], [45, 2]]] } }] };
-    const out = normalise('wfs', fc, true);
+    const out = normalise('geojson', fc, true);
     expect(computeBounds(out)).toEqual([2, 45, 3, 46]);
   });
 

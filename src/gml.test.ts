@@ -57,7 +57,7 @@ describe('GML parsing', () => {
       coordinates: [[[[2, 45], [3, 46], [3, 45], [2, 45]]], [[[10, 40], [10, 41], [11, 41], [10, 40]]]],
     });
     expect(b.geometry).toEqual({ type: 'Point', coordinates: [2.35, 48.85] });
-    expect(computeBounds(normalise('wfs', fc, false))).toEqual([2, 40, 11, 48.85]);
+    expect(computeBounds(normalise('geojson', fc, false))).toEqual([2, 40, 11, 48.85]);
   });
 
   it('reads WFS 1.0 / GML 2 coordinates as lon/lat', () => {

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { fetchClickHouseRows, clickhouseQueryUrl, type QueryTemplateContext } from './clickhouse';
 import { parseGml } from './gml';
 import { wfsGetFeatureUrl } from './ogc';
-import type { Bounds, LayerKind, LayerNode } from './types';
+import type { Bounds, DeckLayerKind, LayerNode } from './types';
 
 type Position = [number, number];
 type Props = Record<string, unknown>;
@@ -82,11 +82,11 @@ function rowProperties(row: unknown, omit: string[]): Props {
   return Object.fromEntries(Object.entries(row as Props).filter(([k]) => !omit.includes(k)));
 }
 
-function normalise(kind: LayerKind, json: unknown, swapXY: boolean): LoadedData {
+function normalise(kind: DeckLayerKind, json: unknown, swapXY: boolean): LoadedData {
   let fc = asFeatureCollection(json);
   if (fc && swapXY) fc = { ...fc, features: fc.features.map((f) => ({ ...f, geometry: swapGeometry(f.geometry) })) };
 
-  if (kind === 'geojson' || kind === 'wfs') {
+  if (kind === 'geojson') {
     if (!fc) throw new Error('Expected GeoJSON (FeatureCollection or Feature)');
     return { shape: 'geojson', data: fc };
   }
@@ -180,12 +180,10 @@ export function sourceUrl(layer: LayerNode): string {
   return layer.url;
 }
 
-/** Cache key; layers with identical sources share one download. WMS has no key (tiles load on demand). */
+/** Cache key; layers with identical sources (and render — see `normalise`) share one download. WMS has no key (tiles load on demand). */
 export function dataKey(layer: LayerNode): string | undefined {
   if (layer.kind === 'wms') return undefined;
-  // The query result is normalised according to `render`, so it's part of the key.
-  const render = layer.kind === 'clickhouse' ? `|render=${layer.clickhouse?.render}` : '';
-  return `${layer.kind}|${layer.wfs?.swapXY ? 'swap|' : ''}${sourceUrl(layer)}${render}`;
+  return `${layer.kind}|render=${layer.render}|${layer.wfs?.swapXY ? 'swap|' : ''}${sourceUrl(layer)}`;
 }
 
 /** Tiny external store so any component can read load status without prop drilling. */
@@ -249,17 +247,16 @@ class DataStore {
     const promise = (async (): Promise<DataState> => {
       try {
         let json: unknown;
-        let normKind: LayerKind = layer.kind;
+        const normKind: DeckLayerKind = layer.render ?? 'scatterplot';
         if (layer.kind === 'clickhouse' && layer.clickhouse) {
           json = (await fetchClickHouseRows(layer.url, layer.clickhouse, ctx)).data;
-          normKind = layer.clickhouse.render;
         } else {
           const res = await fetch(sourceUrl(layer));
           if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
           const text = await res.text();
           if (text.trimStart().startsWith('<')) {
             // XML: a GML FeatureCollection (WFS without JSON output) or an OGC exception report
-            if (layer.kind !== 'wfs' && layer.kind !== 'geojson') throw new Error(`Response is XML, not JSON: ${text.slice(0, 160)}`);
+            if (layer.kind !== 'wfs' && normKind !== 'geojson') throw new Error(`Response is XML, not JSON: ${text.slice(0, 160)}`);
             json = parseGml(text);
           } else {
             try {

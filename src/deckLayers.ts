@@ -90,7 +90,7 @@ function wmsLayer(node: LayerNode, opacity: number): Layer {
 const colorTrigger = (p: PropertyValue<string>) => [p.mode, p.code, p.value];
 const numberTrigger = (p: PropertyValue<number>) => [p.mode, p.code, p.value];
 
-function vectorLayer(node: LayerNode, kind: DeckLayerKind | 'wfs', style: LayerStyle, ctx: DeckLayerContext): Layer | null {
+function vectorLayer(node: LayerNode, kind: DeckLayerKind, style: LayerStyle, ctx: DeckLayerContext): Layer | null {
   const state = dataStore.get(node);
   if (state?.status !== 'ready') return null;
   const { loaded } = state;
@@ -228,6 +228,5 @@ export type DeckLayerContext = DataFilterContext;
 /** Builds the deck.gl layer for a node; returns null while data is still loading. */
 export function toDeckLayer(node: LayerNode, ctx: DeckLayerContext): Layer | null {
   if (node.kind === 'wms') return node.wms ? wmsLayer(node, node.style.opacity.value) : null;
-  const kind = node.kind === 'clickhouse' ? (node.clickhouse?.render ?? 'scatterplot') : node.kind;
-  return vectorLayer(node, kind, node.style, ctx);
+  return vectorLayer(node, node.render ?? 'scatterplot', node.style, ctx);
 }

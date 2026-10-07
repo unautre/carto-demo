@@ -9,7 +9,7 @@ const CTX = { timestamp: T, timeRangeStart: T - 1000, timeRangeEnd: T + 1000, bb
 
 const pv = <T,>(value: T): { mode: 'constant'; value: T; code: string } => ({ mode: 'constant', value, code: '' });
 const chLayer = (clickhouse: ClickHouseParams, url = 'http://localhost:8123'): LayerNode => ({
-  type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', url,
+  type: 'layer', id: 'ch-1', name: 'ClickHouse', visible: true, kind: 'clickhouse', render: 'scatterplot', url,
   style: { color: pv('#ffc300'), opacity: pv(1), radius: pv(100), lineWidth: pv(2), lineColor: pv('#ffc300') },
   clickhouse,
 });
@@ -47,18 +47,18 @@ describe('interpolateQuery', () => {
 
 describe('clickhouseQueryUrl', () => {
   it('appends FORMAT JSON and strips a trailing semicolon', () => {
-    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT 1;', render: 'scatterplot' });
+    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT 1;' });
     const q = new URL(url).searchParams.get('query');
     expect(q).toBe('SELECT 1\nFORMAT JSON');
   });
 
   it('includes the database when set', () => {
-    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT 1', database: 'geo', render: 'scatterplot' });
+    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT 1', database: 'geo' });
     expect(new URL(url).searchParams.get('database')).toBe('geo');
   });
 
   it('does not interpolate placeholders — it is the (stable) cache key, not what gets sent', () => {
-    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT {{timestamp}}', render: 'scatterplot' });
+    const url = clickhouseQueryUrl('http://localhost:8123', { query: 'SELECT {{timestamp}}' });
     expect(new URL(url).searchParams.get('query')).toBe('SELECT {{timestamp}}\nFORMAT JSON');
   });
 });
@@ -68,7 +68,7 @@ describe('fetchClickHouseRows', () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', username: 'default', password: 'secret', render: 'scatterplot' }, CTX);
+    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', username: 'default', password: 'secret' }, CTX);
 
     const [requestUrl, init] = fetchMock.mock.calls[0];
     expect(String(requestUrl)).not.toContain('secret');
@@ -79,7 +79,7 @@ describe('fetchClickHouseRows', () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT * WHERE ts <= {{timestamp}}', render: 'scatterplot' }, CTX);
+    await fetchClickHouseRows('http://localhost:8123', { query: 'SELECT * WHERE ts <= {{timestamp}}' }, CTX);
 
     const [requestUrl] = fetchMock.mock.calls[0];
     expect(new URL(String(requestUrl)).searchParams.get('query')).toBe(`SELECT * WHERE ts <= ${CTX.timestamp}\nFORMAT JSON`);
@@ -87,7 +87,7 @@ describe('fetchClickHouseRows', () => {
 
   it('turns a non-2xx response into a readable error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('Code: 60. DB::Exception: Table default.nope doesn\'t exist', { status: 404 })));
-    await expect(fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1', render: 'scatterplot' }, CTX))
+    await expect(fetchClickHouseRows('http://localhost:8123', { query: 'SELECT 1' }, CTX))
       .rejects.toThrow(/404.*nope doesn't exist/s);
   });
 });
@@ -100,7 +100,7 @@ describe('dataStore.load for a ClickHouse layer', () => {
     ];
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ meta: [{ name: 'lon', type: 'Float64' }], data: rows, rows: 2 }), { status: 200 })));
 
-    const layer = chLayer({ query: 'SELECT lon, lat, city FROM cities', render: 'scatterplot' });
+    const layer = chLayer({ query: 'SELECT lon, lat, city FROM cities' });
     const state = await dataStore.load(layer);
 
     expect(state.status).toBe('ready');
@@ -116,7 +116,7 @@ describe('dataStore.load for a ClickHouse layer', () => {
 
   it('reports a clear error when the query fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('Code: 47. DB::Exception: Unknown column', { status: 400 })));
-    const layer = chLayer({ query: 'SELECT nope FROM cities', render: 'scatterplot' }, 'http://localhost:8123/err');
+    const layer = chLayer({ query: 'SELECT nope FROM cities' }, 'http://localhost:8123/err');
     const state = await dataStore.load(layer);
     expect(state.status).toBe('error');
     if (state.status !== 'error') throw new Error('expected error');
@@ -126,7 +126,7 @@ describe('dataStore.load for a ClickHouse layer', () => {
   it('sends the query with {{timestamp}} resolved from the given ctx', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ meta: [], data: [], rows: 0 }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    const layer = chLayer({ query: 'SELECT lon, lat FROM events WHERE ts <= {{timestamp}}', render: 'scatterplot' }, 'http://localhost:8123/ts');
+    const layer = chLayer({ query: 'SELECT lon, lat FROM events WHERE ts <= {{timestamp}}' }, 'http://localhost:8123/ts');
 
     await dataStore.load(layer, CTX);
 
