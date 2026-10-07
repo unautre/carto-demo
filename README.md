@@ -54,23 +54,27 @@ In the GitHub repository, go to *Settings → Secrets and variables → Actions*
 
 ## How it works
 
+`src/sources/` holds everything about *where rows come from* (fetching/querying, independent of how they're drawn); `src/layers/` holds everything about *how rows become a deck.gl layer* (style resolution, extensions). `src/catalog.ts` and `src/data.ts` sit above both — `catalog.ts` is what unifies a source with a render kind into one `LayerNode` in the first place, and `data.ts` is the fetch/cache orchestrator that calls into `src/sources/` and feeds `src/layers/deckLayers.ts`.
+
 | File | Role |
 | --- | --- |
 | `src/types.ts` | Layer / group tree model |
 | `src/catalog.ts` | `RENDER_KINDS` (style defaults/controls per render kind) + `SOURCE_KINDS` (label/icon/hint per source); `makeLayer`; migrates an old-shaped saved layer/style to the current one |
 | `src/tree.ts` | Pure tree operations (move, insert, ungroup, render order) |
 | `src/state.ts` | Reducer + localStorage persistence |
-| `src/data.ts` | Fetch + cache layer data, normalise common JSON shapes, compute extents |
-| `src/ogc.ts` | WMS GetMap / WFS GetFeature URLs, GetCapabilities parsing |
-| `src/gml.ts` | WFS GML (2 / 3.1 / 3.2) → GeoJSON |
-| `src/clickhouse.ts` | ClickHouse HTTP interface query URL + fetch |
-| `src/duckdb.ts` | Lazy-initialised in-browser DuckDB-WASM engine (CDN-hosted, keyless) + query |
-| `src/queryTemplate.ts` | `{{timestamp}}` etc. placeholder interpolation shared by ClickHouse and DuckDB queries |
-| `src/accessors.ts` | Compiles a style property's JS accessor code (colour/opacity/radius/line width) and resolves it, or its constant, to what a deck.gl prop expects |
-| `src/layerExtensions.ts` | deck.gl layer extensions (`DataFilterExtension` + `FilterFadeExtension`): compiles the user's `getFilterValue` JS and builds the layer props |
-| `src/filterFadeExtension.ts` | `FilterFadeExtension`: the GPU shader behind "Fade opacity across range" |
+| `src/data.ts` | Fetch + cache layer data (via `src/sources/`), normalise common JSON shapes, compute extents |
 | `src/widgetCatalog.ts` | Catalog of addable deck.gl widgets (label/icon/default placement/factory) |
-| `src/deckLayers.ts` | Tree node → deck.gl layer; basemaps |
+| `src/sources/ogc.ts` | WMS GetMap / WFS GetFeature URLs, GetCapabilities parsing |
+| `src/sources/gml.ts` | WFS GML (2 / 3.1 / 3.2) → GeoJSON |
+| `src/sources/clickhouse.ts` | ClickHouse HTTP interface query URL + fetch |
+| `src/sources/duckdb.ts` | Lazy-initialised in-browser DuckDB-WASM engine (CDN-hosted, keyless) + query |
+| `src/sources/queryTemplate.ts` | `{{timestamp}}` etc. placeholder interpolation shared by ClickHouse and DuckDB queries |
+| `src/layers/deckLayers.ts` | Tree node → deck.gl layer; basemaps |
+| `src/layers/accessors.ts` | Compiles a style property's JS accessor code (colour/opacity/radius/line width) and resolves it, or its constant, to what a deck.gl prop expects |
+| `src/layers/colors.ts` | Hex ↔ RGB(A) helpers |
+| `src/layers/layerExtensions.ts` | deck.gl layer extensions (`DataFilterExtension` + `FilterFadeExtension`): compiles the user's `getFilterValue` JS and builds the layer props |
+| `src/layers/filterFadeExtension.ts` | `FilterFadeExtension`: the GPU shader behind "Fade opacity across range" |
+| `src/layers/featureInfo.ts` | Click-to-inspect popup widget |
 | `src/components/LayerPanel.tsx` | Tree UI and drag and drop (dnd-kit) |
 | `src/components/BasemapSettings.tsx` | The basemap's row + inline settings (URL/max zoom/attribution), at the top of the layer tree |
 | `src/components/LayerSettings.tsx` | Inline layer settings |

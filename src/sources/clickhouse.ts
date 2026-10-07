@@ -1,4 +1,4 @@
-import type { ClickHouseParams } from './types';
+import type { ClickHouseParams } from '../types';
 import { interpolateQuery, type QueryTemplateContext } from './queryTemplate';
 
 export type { QueryTemplateContext };

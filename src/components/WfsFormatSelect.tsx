@@ -1,4 +1,4 @@
-import { WFS_JSON_FORMAT } from '../ogc';
+import { WFS_JSON_FORMAT } from '../sources/ogc';
 
 interface Props {
   value: string;

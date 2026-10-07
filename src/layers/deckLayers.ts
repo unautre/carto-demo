@@ -4,10 +4,10 @@ import { TileLayer, type TileLayerProps } from '@deck.gl/geo-layers';
 import { HeatmapLayer, HexagonLayer } from '@deck.gl/aggregation-layers';
 import { resolveColorWithAlpha, resolveNumberProperty } from './accessors';
 import { hexToRgb, type RGB, type RGBA } from './colors';
-import { dataStore } from './data';
+import { dataStore } from '../data';
 import { dataFilterExtensionProps, type DataFilterContext } from './layerExtensions';
-import { fetchWmsImage, wmsGetMapUrl } from './ogc';
-import type { BasemapConfig, Bounds, DeckLayerKind, LayerNode, LayerStyle, PropertyValue } from './types';
+import { fetchWmsImage, wmsGetMapUrl } from '../sources/ogc';
+import type { BasemapConfig, Bounds, DeckLayerKind, LayerNode, LayerStyle, PropertyValue } from '../types';
 
 /** Light-to-strong ramp from the layer colour, used by aggregation layers. */
 function colorRamp(hex: string): RGB[] {

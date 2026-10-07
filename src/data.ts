@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { fetchClickHouseRows, clickhouseQueryUrl, type QueryTemplateContext } from './clickhouse';
-import { fetchDuckDbRows, duckdbQueryKey } from './duckdb';
-import { parseGml } from './gml';
-import { wfsGetFeatureUrl } from './ogc';
+import { fetchClickHouseRows, clickhouseQueryUrl, type QueryTemplateContext } from './sources/clickhouse';
+import { fetchDuckDbRows, duckdbQueryKey } from './sources/duckdb';
+import { parseGml } from './sources/gml';
+import { wfsGetFeatureUrl } from './sources/ogc';
 import type { Bounds, DeckLayerKind, LayerNode } from './types';
 
 type Position = [number, number];

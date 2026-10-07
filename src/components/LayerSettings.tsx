@@ -1,11 +1,11 @@
 import { useState, type Dispatch } from 'react';
-import { colorPropertyError, numberPropertyError } from '../accessors';
+import { colorPropertyError, numberPropertyError } from '../layers/accessors';
 import { DECK_KINDS, displayInfo, RENDER_KINDS, renderKindInfo } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
 import { UNIT_LABEL, UNIT_ORDER } from '../duration';
-import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layerExtensions';
+import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layers/layerExtensions';
 import type { Action } from '../state';
-import { WFS_JSON_FORMAT } from '../ogc';
+import { WFS_JSON_FORMAT } from '../sources/ogc';
 import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, DuckDbParams, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
 import { WfsFormatSelect } from './WfsFormatSelect';
 

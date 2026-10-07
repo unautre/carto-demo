@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compileFilterValue, computeFilterRange, dataFilterExtensionProps, resolveFilterRange } from './layerExtensions';
-import type { LoadedData } from './data';
-import type { DataFilterConfig } from './types';
+import type { LoadedData } from '../data';
+import type { DataFilterConfig } from '../types';
 
 const T = 1_700_000_000_000;
 
