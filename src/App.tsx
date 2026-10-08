@@ -155,7 +155,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <LayerPanel tree={tree} dispatch={dispatch} onZoomTo={zoomTo} onAddLayer={() => setAdding(true)} timestamp={timestamp} basemap={basemap} />
+      <LayerPanel tree={tree} dispatch={dispatch} onZoomTo={zoomTo} onAddLayer={() => setAdding(true)} timestamp={timestamp} basemap={basemap} queryCtx={queryCtx} />
       <main className="map" ref={mapRef}>
         <DeckGL
           viewState={viewState}

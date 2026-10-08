@@ -6,6 +6,7 @@ import type { QueryTemplateContext } from '../sources/queryTemplate';
 import { fetchWfsCapabilities, fetchWmsCapabilities, isJsonFormat, WFS_JSON_FORMAT, type Capabilities, type CapabilityLayer } from '../sources/ogc';
 import { unionBounds } from '../data';
 import type { DeckLayerKind, LayerNode } from '../types';
+import { QueryField } from './QueryField';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
 type Tab = 'url' | 'wms' | 'wfs' | 'clickhouse' | 'duckdb';
@@ -281,25 +282,8 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
   const [query, setQuery] = useState('SELECT lon, lat FROM my_table LIMIT 1000');
   const [render, setRender] = useState<DeckLayerKind>('scatterplot');
   const [name, setName] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState('');
-  const [error, setError] = useState('');
 
   const params = { query, database: database.trim() || undefined, username: username.trim() || undefined, password: password || undefined };
-
-  const test = async () => {
-    setTesting(true);
-    setError('');
-    setResult('');
-    try {
-      const r = await fetchClickHouseRows(url.trim(), params, queryCtx);
-      setResult(`${r.rows} row${r.rows === 1 ? '' : 's'} · columns: ${r.meta.map((m) => m.name).join(', ') || '—'}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <form
@@ -329,29 +313,19 @@ function ClickHouseForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; qu
       </div>
       <RenderSelect value={render} onChange={setRender} />
       <p className="muted hint">{RENDER_KINDS[render].hint}</p>
-      <label className="field">
-        <span>SQL query</span>
-        <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />
-      </label>
-      <p className="muted hint">
-        <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
-        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".{' '}
-        <code>{'{{bboxWest}}'}</code>, <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> are
-        replaced with the map's current extent in degrees.
-      </p>
-      <div className="field-row">
-        <button type="button" className="btn" onClick={test} disabled={testing || !url.trim() || !query.trim()}>
-          {testing ? 'Running…' : 'Test query'}
-        </button>
-        {result && <span className="muted">{result}</span>}
-      </div>
-      {error && <div className="error-box">{error}</div>}
+      <QueryField
+        label="SQL query"
+        query={query}
+        onSave={setQuery}
+        queryCtx={queryCtx}
+        run={(q, ctx) => fetchClickHouseRows(url.trim(), { ...params, query: q }, ctx).then((r) => ({ data: r.data, rows: r.rows }))}
+      />
       <label className="field">
         <span>Name</span>
         <input value={name} placeholder="ClickHouse layer" onChange={(e) => setName(e.target.value)} />
       </label>
       <div className="form-actions">
-        <button className="btn primary" type="submit">Add ClickHouse layer</button>
+        <button className="btn primary" type="submit" disabled={!query.trim()}>Add ClickHouse layer</button>
       </div>
     </form>
   );
@@ -361,23 +335,6 @@ function DuckDbForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; queryC
   const [query, setQuery] = useState("SELECT * FROM (VALUES (-122.27, 37.80), (-122.42, 37.77)) AS t(lon, lat)");
   const [render, setRender] = useState<DeckLayerKind>(SOURCE_KINDS.duckdb.defaultRender!);
   const [name, setName] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState('');
-  const [error, setError] = useState('');
-
-  const test = async () => {
-    setTesting(true);
-    setError('');
-    setResult('');
-    try {
-      const r = await fetchDuckDbRows({ query }, queryCtx);
-      setResult(`${r.rows} row${r.rows === 1 ? '' : 's'} · columns: ${Object.keys(r.data[0] ?? {}).join(', ') || '—'}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <form
@@ -390,29 +347,13 @@ function DuckDbForm({ onAdd, queryCtx }: { onAdd: (l: LayerNode) => void; queryC
       <p className="muted hint">Runs entirely in the browser via DuckDB-WASM — no server, no credentials.</p>
       <RenderSelect value={render} onChange={setRender} />
       <p className="muted hint">{RENDER_KINDS[render].hint}</p>
-      <label className="field">
-        <span>SQL query</span>
-        <textarea required rows={5} value={query} onChange={(e) => setQuery(e.target.value)} />
-      </label>
-      <p className="muted hint">
-        <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
-        numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".{' '}
-        <code>{'{{bboxWest}}'}</code>, <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> are
-        replaced with the map's current extent in degrees.
-      </p>
-      <div className="field-row">
-        <button type="button" className="btn" onClick={test} disabled={testing || !query.trim()}>
-          {testing ? 'Running…' : 'Test query'}
-        </button>
-        {result && <span className="muted">{result}</span>}
-      </div>
-      {error && <div className="error-box">{error}</div>}
+      <QueryField label="SQL query" query={query} onSave={setQuery} queryCtx={queryCtx} run={(q, ctx) => fetchDuckDbRows({ query: q }, ctx)} />
       <label className="field">
         <span>Name</span>
         <input value={name} placeholder="DuckDB layer" onChange={(e) => setName(e.target.value)} />
       </label>
       <div className="form-actions">
-        <button className="btn primary" type="submit">Add DuckDB layer</button>
+        <button className="btn primary" type="submit" disabled={!query.trim()}>Add DuckDB layer</button>
       </div>
     </form>
   );
