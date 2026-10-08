@@ -10,6 +10,7 @@ import type { QueryTemplateContext } from '../sources/queryTemplate';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../sources/ogc';
 import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, DuckDbParams, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
+import { CodeEditor } from './CodeEditor';
 import { QueryField } from './QueryField';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
@@ -19,6 +20,26 @@ function PropertyModeSelect({ mode, onChange }: { mode: PropertyMode; onChange: 
       <option value="constant">Value</option>
       <option value="accessor">Accessor</option>
     </select>
+  );
+}
+
+/**
+ * JS accessor code, edited locally and only reported via `onCommit` on blur — recompiling (and
+ * re-running) the accessor on every keystroke would be wasteful and distracting (error flashing
+ * mid-edit). Remounted (via the caller's `key={initialCode}`) whenever the saved code changes from
+ * outside this editor — e.g. switching layers, undo, or a Reload-driven reset.
+ */
+function AccessorCodeEditor({ initialCode, placeholder, onCommit }: { initialCode: string; placeholder: string; onCommit: (code: string) => void }) {
+  const [code, setCode] = useState(initialCode);
+  return (
+    <CodeEditor
+      language="javascript"
+      value={code}
+      onChange={setCode}
+      placeholder={placeholder}
+      minHeight="50px"
+      onBlur={() => code !== initialCode && onCommit(code)}
+    />
   );
 }
 
@@ -37,7 +58,11 @@ interface NumberPropertyFieldProps {
 function NumberPropertyField({ label, prop, accessorCapable, min, max, step, format, placeholder, onChange }: NumberPropertyFieldProps) {
   const error = numberPropertyError(prop);
   return (
-    <label className="field">
+    // A plain `<div>`, not `<label>`: a native label forwards a click anywhere inside it that
+    // isn't itself a labelable element (button/input/select/textarea/…) to its first labelable
+    // descendant — CodeMirror's `contenteditable` div doesn't qualify, so every click meant for the
+    // editor would instead refocus the mode `<select>` below.
+    <div className="field">
       <span className="prop-header">
         <span>{label}{prop.mode === 'constant' ? ` · ${format ? format(prop.value) : prop.value}` : ''}</span>
         {accessorCapable && <PropertyModeSelect mode={prop.mode} onChange={(mode) => onChange({ mode })} />}
@@ -45,19 +70,10 @@ function NumberPropertyField({ label, prop, accessorCapable, min, max, step, for
       {prop.mode === 'constant' ? (
         <input type="range" min={min} max={max} step={step} value={prop.value} onChange={(e) => onChange({ value: +e.target.value })} />
       ) : (
-        <textarea
-          rows={2}
-          defaultValue={prop.code}
-          key={prop.code}
-          placeholder={placeholder}
-          onBlur={(e) => {
-            const code = e.currentTarget.value;
-            if (code !== prop.code) onChange({ code });
-          }}
-        />
+        <AccessorCodeEditor key={prop.code} initialCode={prop.code} placeholder={placeholder} onCommit={(code) => onChange({ code })} />
       )}
       {prop.mode === 'accessor' && error && <span className="error-box">{error}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -74,7 +90,9 @@ function ColorPropertyField({
 }) {
   const error = colorPropertyError(prop);
   return (
-    <label className={`field ${prop.mode === 'constant' ? 'color-field' : ''}`}>
+    // See the comment in NumberPropertyField: a `<label>` here would forward clicks meant for the
+    // CodeMirror editor to the mode `<select>` instead.
+    <div className={`field ${prop.mode === 'constant' ? 'color-field' : ''}`}>
       <span className="prop-header">
         <span>{label}</span>
         {accessorCapable && <PropertyModeSelect mode={prop.mode} onChange={(mode) => onChange({ mode })} />}
@@ -82,19 +100,15 @@ function ColorPropertyField({
       {prop.mode === 'constant' ? (
         <input type="color" value={prop.value} onChange={(e) => onChange({ value: e.target.value })} />
       ) : (
-        <textarea
-          rows={2}
-          defaultValue={prop.code}
+        <AccessorCodeEditor
           key={prop.code}
+          initialCode={prop.code}
           placeholder="return properties.value > 0 ? '#e4572e' : '#2e86ab';"
-          onBlur={(e) => {
-            const code = e.currentTarget.value;
-            if (code !== prop.code) onChange({ code });
-          }}
+          onCommit={(code) => onChange({ code })}
         />
       )}
       {prop.mode === 'accessor' && error && <span className="error-box">{error}</span>}
-    </label>
+    </div>
   );
 }
 
@@ -334,14 +348,13 @@ export function LayerSettings({ layer, dispatch, depth, timestamp, queryCtx }: P
             <>
               <label className="field">
                 <span>getFilterValue(properties)</span>
-                <textarea
-                  rows={3}
-                  defaultValue={layer.dataFilter.getFilterValue}
+                <AccessorCodeEditor
                   key={layer.dataFilter.getFilterValue}
-                  onBlur={(e) => {
-                    const code = e.currentTarget.value;
+                  initialCode={layer.dataFilter.getFilterValue}
+                  placeholder="return properties.value ?? 0;"
+                  onCommit={(code) => {
                     setFilterError(compileFilterValue(code).error);
-                    if (code !== layer.dataFilter!.getFilterValue) setDataFilter({ getFilterValue: code });
+                    setDataFilter({ getFilterValue: code });
                   }}
                 />
               </label>

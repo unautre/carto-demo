@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CodeEditor } from './CodeEditor';
 import type { QueryTemplateContext } from '../sources/queryTemplate';
 
 interface QueryRunResult {
@@ -103,14 +104,7 @@ function QueryEditorDialog({ label, initialQuery, queryCtx, run, onSave, onClose
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
         </header>
 
-        <textarea
-          className="query-editor-textarea"
-          rows={10}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          spellCheck={false}
-          autoFocus
-        />
+        <CodeEditor language="sql" value={query} onChange={setQuery} minHeight="220px" autoFocus />
         <p className="muted hint">
           <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> are replaced with epoch-ms
           numbers before the query runs — the Timeline widget's position/range if it's enabled, else all three are "now".{' '}
