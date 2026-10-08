@@ -4,9 +4,13 @@ import { DECK_KINDS, displayInfo, RENDER_KINDS, renderKindInfo } from '../catalo
 import { dataStore, useDataStoreVersion } from '../data';
 import { UNIT_LABEL, UNIT_ORDER } from '../duration';
 import { compileFilterValue, computeFilterRange, DEFAULT_DATA_FILTER, resolveFilterRange } from '../layers/layerExtensions';
+import { fetchClickHouseRows } from '../sources/clickhouse';
+import { fetchDuckDbRows } from '../sources/duckdb';
+import type { QueryTemplateContext } from '../sources/queryTemplate';
 import type { Action } from '../state';
 import { WFS_JSON_FORMAT } from '../sources/ogc';
 import type { ClickHouseParams, DataFilterConfig, DeckLayerKind, DuckDbParams, LayerNode, LayerStyle, PropertyMode, PropertyValue, TimeUnit, WfsParams, WmsParams } from '../types';
+import { QueryField } from './QueryField';
 import { WfsFormatSelect } from './WfsFormatSelect';
 
 function PropertyModeSelect({ mode, onChange }: { mode: PropertyMode; onChange: (mode: PropertyMode) => void }) {
@@ -100,9 +104,11 @@ interface Props {
   depth: number;
   /** epoch ms, used to preview a 'timeline'-mode data filter's current [min, max] — see App.tsx */
   timestamp: number;
+  /** for testing a ClickHouse/DuckDB query's {{timestamp}} etc. placeholders in the query editor modal */
+  queryCtx: QueryTemplateContext;
 }
 
-export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
+export function LayerSettings({ layer, dispatch, depth, timestamp, queryCtx }: Props) {
   useDataStoreVersion();
   const info = displayInfo(layer);
   const renderKind: DeckLayerKind = layer.render ?? 'scatterplot';
@@ -273,24 +279,13 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
 
       {layer.clickhouse && (
         <>
-          <label className="field">
-            <span>SQL query</span>
-            <textarea
-              rows={4}
-              defaultValue={layer.clickhouse.query}
-              key={layer.clickhouse.query}
-              onBlur={(e) => {
-                const query = e.currentTarget.value.trim();
-                if (query && query !== layer.clickhouse!.query) setClickhouse({ query });
-              }}
-            />
-          </label>
-          <p className="muted hint">
-            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers —
-            the Timeline widget's position/range if one's enabled, else all three are "now". <code>{'{{bboxWest}}'}</code>,{' '}
-            <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> resolve to the map's current extent
-            in degrees. Re-resolved on Reload, not live.
-          </p>
+          <QueryField
+            label="SQL query"
+            query={layer.clickhouse.query}
+            onSave={(query) => setClickhouse({ query })}
+            queryCtx={queryCtx}
+            run={(q, ctx) => fetchClickHouseRows(layer.url, { ...layer.clickhouse!, query: q }, ctx).then((r) => ({ data: r.data, rows: r.rows }))}
+          />
           <div className="field-row">
             <label className="field">
               <span>Database</span>
@@ -324,25 +319,14 @@ export function LayerSettings({ layer, dispatch, depth, timestamp }: Props) {
 
       {layer.duckdb && (
         <>
-          <label className="field">
-            <span>SQL query</span>
-            <textarea
-              rows={4}
-              defaultValue={layer.duckdb.query}
-              key={layer.duckdb.query}
-              onBlur={(e) => {
-                const query = e.currentTarget.value.trim();
-                if (query && query !== layer.duckdb!.query) setDuckdb({ query });
-              }}
-            />
-          </label>
-          <p className="muted hint">
-            Runs entirely in the browser via DuckDB-WASM — no server, no credentials.{' '}
-            <code>{'{{timestamp}}'}</code>, <code>{'{{timeRangeStart}}'}</code> and <code>{'{{timeRangeEnd}}'}</code> resolve to epoch-ms numbers —
-            the Timeline widget's position/range if one's enabled, else all three are "now". <code>{'{{bboxWest}}'}</code>,{' '}
-            <code>{'{{bboxSouth}}'}</code>, <code>{'{{bboxEast}}'}</code> and <code>{'{{bboxNorth}}'}</code> resolve to the map's current extent
-            in degrees. Re-resolved on Reload, not live.
-          </p>
+          <p className="muted hint">Runs entirely in the browser via DuckDB-WASM — no server, no credentials.</p>
+          <QueryField
+            label="SQL query"
+            query={layer.duckdb.query}
+            onSave={(query) => setDuckdb({ query })}
+            queryCtx={queryCtx}
+            run={(q, ctx) => fetchDuckDbRows({ query: q }, ctx)}
+          />
         </>
       )}
 

@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { displayInfo } from '../catalog';
 import { dataStore, useDataStoreVersion } from '../data';
+import type { QueryTemplateContext } from '../sources/queryTemplate';
 import type { Action } from '../state';
 import { allLayers, descendantState, findNode, isSelfOrDescendant, ROOT_END } from '../tree';
 import type { BasemapConfig, DropTarget, GroupNode, LayerNode, TreeNode } from '../types';
@@ -29,6 +30,8 @@ interface PanelCtx {
   setOpenSettings: (id: string | null) => void;
   /** epoch ms, for a 'timeline'-mode data filter's computed range — see App.tsx */
   timestamp: number;
+  /** for testing a ClickHouse/DuckDB query's {{timestamp}} etc. placeholders in the query editor modal */
+  queryCtx: QueryTemplateContext;
 }
 
 const Ctx = createContext<PanelCtx>(null!);
@@ -40,9 +43,10 @@ interface Props {
   onAddLayer: () => void;
   timestamp: number;
   basemap: BasemapConfig;
+  queryCtx: QueryTemplateContext;
 }
 
-export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp, basemap }: Props) {
+export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp, basemap, queryCtx }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [openSettings, setOpenSettings] = useState<string | null>(null);
@@ -91,7 +95,7 @@ export function LayerPanel({ tree, dispatch, onZoomTo, onAddLayer, timestamp, ba
   const visibleCount = layers.filter((l) => l.visible).length;
 
   return (
-    <Ctx.Provider value={{ dispatch, onZoomTo, dropTarget, activeId, openSettings, setOpenSettings, timestamp }}>
+    <Ctx.Provider value={{ dispatch, onZoomTo, dropTarget, activeId, openSettings, setOpenSettings, timestamp, queryCtx }}>
       <aside className="panel">
         <header className="panel-header">
           <div className="panel-title">
@@ -216,7 +220,7 @@ function Status({ layer }: { layer: LayerNode }) {
 const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n));
 
 function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
-  const { dispatch, onZoomTo, openSettings, setOpenSettings, timestamp } = useContext(Ctx);
+  const { dispatch, onZoomTo, openSettings, setOpenSettings, timestamp, queryCtx } = useContext(Ctx);
   const info = displayInfo(layer);
   const open = openSettings === layer.id;
   return (
@@ -243,7 +247,7 @@ function LayerItem({ layer, depth }: { layer: LayerNode; depth: number }) {
           </>
         )}
       </Row>
-      {open && <LayerSettings layer={layer} dispatch={dispatch} depth={depth} timestamp={timestamp} />}
+      {open && <LayerSettings layer={layer} dispatch={dispatch} depth={depth} timestamp={timestamp} queryCtx={queryCtx} />}
     </>
   );
 }
