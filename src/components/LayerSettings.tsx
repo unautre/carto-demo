@@ -157,30 +157,28 @@ export function LayerSettings({ layer, dispatch, depth, timestamp, queryCtx }: P
         </label>
       )}
 
-      <div className="field-row">
-        <NumberPropertyField
-          label="Opacity"
-          prop={layer.style.opacity}
-          accessorCapable={accessorCapable.has('opacity')}
-          min={0}
-          max={1}
-          step={0.05}
-          format={(v) => `${Math.round(v * 100)}%`}
-          placeholder="return properties.value ?? 1;"
-          onChange={(patch) => setProp('opacity', patch)}
+      <NumberPropertyField
+        label="Opacity"
+        prop={layer.style.opacity}
+        accessorCapable={accessorCapable.has('opacity')}
+        min={0}
+        max={1}
+        step={0.05}
+        format={(v) => `${Math.round(v * 100)}%`}
+        placeholder="return properties.value ?? 1;"
+        onChange={(patch) => setProp('opacity', patch)}
+      />
+      {layer.kind !== 'wms' && (
+        <ColorPropertyField
+          // Only call it "Fill colour" where a separate "Line colour" is also shown, otherwise
+          // (Path/Arc, where this colour IS the line — there's no fill at all) that label would
+          // be actively wrong, not just redundant.
+          label={renderInfo.controls.includes('lineColor') ? 'Fill colour' : 'Colour'}
+          prop={layer.style.color}
+          accessorCapable={accessorCapable.has('color')}
+          onChange={(patch) => setProp('color', patch)}
         />
-        {layer.kind !== 'wms' && (
-          <ColorPropertyField
-            // Only call it "Fill colour" where a separate "Line colour" is also shown, otherwise
-            // (Path/Arc, where this colour IS the line — there's no fill at all) that label would
-            // be actively wrong, not just redundant.
-            label={renderInfo.controls.includes('lineColor') ? 'Fill colour' : 'Colour'}
-            prop={layer.style.color}
-            accessorCapable={accessorCapable.has('color')}
-            onChange={(patch) => setProp('color', patch)}
-          />
-        )}
-      </div>
+      )}
 
       {renderInfo.controls.includes('radius') && (
         <NumberPropertyField
@@ -194,29 +192,25 @@ export function LayerSettings({ layer, dispatch, depth, timestamp, queryCtx }: P
           onChange={(patch) => setProp('radius', patch)}
         />
       )}
-      {(renderInfo.controls.includes('lineWidth') || renderInfo.controls.includes('lineColor')) && (
-        <div className="field-row">
-          {renderInfo.controls.includes('lineWidth') && (
-            <NumberPropertyField
-              label="Line width (px)"
-              prop={layer.style.lineWidth}
-              accessorCapable={accessorCapable.has('lineWidth')}
-              min={0.5}
-              max={12}
-              step={0.5}
-              placeholder="return properties.value ?? 2;"
-              onChange={(patch) => setProp('lineWidth', patch)}
-            />
-          )}
-          {renderInfo.controls.includes('lineColor') && (
-            <ColorPropertyField
-              label="Line colour"
-              prop={layer.style.lineColor}
-              accessorCapable={accessorCapable.has('lineColor')}
-              onChange={(patch) => setProp('lineColor', patch)}
-            />
-          )}
-        </div>
+      {renderInfo.controls.includes('lineWidth') && (
+        <NumberPropertyField
+          label="Line width (px)"
+          prop={layer.style.lineWidth}
+          accessorCapable={accessorCapable.has('lineWidth')}
+          min={0.5}
+          max={12}
+          step={0.5}
+          placeholder="return properties.value ?? 2;"
+          onChange={(patch) => setProp('lineWidth', patch)}
+        />
+      )}
+      {renderInfo.controls.includes('lineColor') && (
+        <ColorPropertyField
+          label="Line colour"
+          prop={layer.style.lineColor}
+          accessorCapable={accessorCapable.has('lineColor')}
+          onChange={(patch) => setProp('lineColor', patch)}
+        />
       )}
 
       {layer.wms && (
