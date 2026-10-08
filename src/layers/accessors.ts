@@ -1,3 +1,4 @@
+import { hash, numberToColor } from './accessorRuntime';
 import { hexToRgb, isValidHexColor, type RGB, type RGBA } from './colors';
 import type { PropertyValue } from '../types';
 
@@ -15,10 +16,12 @@ const cache = new Map<string, CompiledAccessor<unknown>>();
 
 /**
  * Compiles `code` (a function body; an implicit `return` is added for a bare expression) into a
- * per-row accessor. `parse` validates/converts the raw return value, falling back to `fallback`
- * when it's missing, the wrong type, or the code throws at runtime. Cached by `cacheKey` (not
- * `code` alone — a number accessor and a colour accessor could otherwise share one cache entry
- * for the same code string and return each other's stale, wrongly-typed result).
+ * per-row accessor. Besides `properties` and `d`, the code can call `hash(...)` and
+ * `numberToColor(value, min?, max?)` (see `accessorRuntime.ts`). `parse` validates/converts the
+ * raw return value, falling back to `fallback` when it's missing, the wrong type, or the code
+ * throws at runtime. Cached by `cacheKey` (not `code` alone — a number accessor and a colour
+ * accessor could otherwise share one cache entry for the same code string and return each other's
+ * stale, wrongly-typed result).
  */
 function compile<T>(cacheKey: string, code: string, parse: (raw: unknown) => T | undefined, fallback: T): CompiledAccessor<T> {
   const cached = cache.get(cacheKey);
@@ -28,11 +31,12 @@ function compile<T>(cacheKey: string, code: string, parse: (raw: unknown) => T |
   try {
     const body = /\breturn\b/.test(code) ? code : `return (${code});`;
     // eslint-disable-next-line no-new-func -- the whole point: users write the accessor's JS
-    const raw = new Function('properties', 'd', body) as (properties: Record<string, unknown>, d: RowLike) => unknown;
+    const raw = new Function('properties', 'd', 'hash', 'numberToColor', body) as
+      (properties: Record<string, unknown>, d: RowLike, hash: unknown, numberToColor: unknown) => unknown;
     compiled = {
       fn: (d: RowLike) => {
         try {
-          const v = parse(raw(d.properties ?? {}, d));
+          const v = parse(raw(d.properties ?? {}, d, hash, numberToColor));
           return v !== undefined ? v : fallback;
         } catch {
           return fallback;
