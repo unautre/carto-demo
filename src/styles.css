@@ -383,18 +383,6 @@ button, input, select { font: inherit; color: inherit; }
 .query-trigger code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
 .query-trigger .muted { flex: none; font-size: 11px; }
 .query-dialog { width: min(820px, calc(100vw - 32px)); }
-.query-editor-textarea {
-  width: 100%;
-  min-height: 220px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  resize: vertical;
-}
 .query-result-wrap { max-height: min(340px, 40vh); overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 .query-result-table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .query-result-table th, .query-result-table td {
