@@ -5,7 +5,7 @@ import type { LayerNode } from '../types';
 type Props = Record<string, unknown>;
 
 /** Layers whose features open a property popup on click (instead of a hover tooltip). */
-export const clickInfoKinds = new Set<LayerNode['kind']>(['wfs', 'clickhouse']);
+export const clickInfoKinds = new Set<LayerNode['kind']>(['wfs', 'clickhouse', 'duckdb']);
 
 function formatValue(v: unknown): string {
   if (v === null || v === undefined) return '—';
@@ -63,7 +63,6 @@ export function createFeatureInfoWidget(findNode: (layerId: string) => LayerNode
     mode: 'click',
     placement: 'top',
     getTooltip: (info: PickingInfo) => {
-      console.log('DBG getTooltip', info.layer?.id, !!info.object, info.coordinate);
       openLayerId = null;
       const node = info.layer ? findNode(info.layer.id) : undefined;
       if (!info.object || !node || !clickInfoKinds.has(node.kind)) return null;

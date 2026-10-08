@@ -164,7 +164,6 @@ export default function App() {
           layers={layers}
           getTooltip={(info) => (isClickInfoLayer(info) ? null : tooltip(info))}
           widgets={widgets}
-          onClick={(i) => console.log('DBG deck onClick', i.layer?.id)}
         />
         <WidgetsPanel settings={widgetSettings} dispatch={dispatch} />
         <div className="attribution">{basemap.enabled ? basemap.attribution : ''}</div>
