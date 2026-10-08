@@ -52,6 +52,13 @@ describe('compileFilterValue', () => {
     const b = compileFilterValue('return 1;');
     expect(a).toBe(b);
   });
+
+  it('can call the sandboxed hash() helper', () => {
+    const { fn, error } = compileFilterValue('return hash(properties.category);');
+    expect(error).toBeUndefined();
+    expect(fn({ properties: { category: 'a' } })).toBe(fn({ properties: { category: 'a' } }));
+    expect(fn({ properties: { category: 'a' } })).not.toBe(fn({ properties: { category: 'b' } }));
+  });
 });
 
 describe('computeFilterRange', () => {

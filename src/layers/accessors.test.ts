@@ -35,6 +35,13 @@ describe('compileNumberAccessor', () => {
     const { fn: fnInf } = compileNumberAccessor('return Infinity;', -1);
     expect(fnInf({ properties: {} })).toBe(-1);
   });
+
+  it('can call the sandboxed hash() helper', () => {
+    const { fn, error } = compileNumberAccessor('return hash(properties.category);', -1);
+    expect(error).toBeUndefined();
+    expect(fn({ properties: { category: 'a' } })).toBe(fn({ properties: { category: 'a' } }));
+    expect(fn({ properties: { category: 'a' } })).not.toBe(fn({ properties: { category: 'b' } }));
+  });
 });
 
 describe('compileColorAccessor', () => {
@@ -49,6 +56,13 @@ describe('compileColorAccessor', () => {
     expect(fn({ properties: {} })).toEqual([1, 2, 3]);
     const { fn: fnBad } = compileColorAccessor("return 'not-a-color';", [1, 2, 3]);
     expect(fnBad({ properties: {} })).toEqual([1, 2, 3]);
+  });
+
+  it('can call the sandboxed numberToColor() helper', () => {
+    const { fn, error } = compileColorAccessor('return numberToColor(properties.v, 0, 100);', [0, 0, 0]);
+    expect(error).toBeUndefined();
+    expect(fn({ properties: { v: 0 } })).toEqual([46, 134, 171]);
+    expect(fn({ properties: { v: 100 } })).toEqual([228, 87, 46]);
   });
 
   it("doesn't collide with a number accessor using the same code string", () => {
