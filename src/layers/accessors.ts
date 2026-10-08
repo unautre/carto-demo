@@ -1,4 +1,4 @@
-import { hash, numberToColor } from './accessorRuntime';
+import { ACCESSOR_RUNTIME } from './accessorRuntime';
 import { hexToRgb, isValidHexColor, type RGB, type RGBA } from './colors';
 import type { PropertyValue } from '../types';
 
@@ -16,12 +16,13 @@ const cache = new Map<string, CompiledAccessor<unknown>>();
 
 /**
  * Compiles `code` (a function body; an implicit `return` is added for a bare expression) into a
- * per-row accessor. Besides `properties` and `d`, the code can call `hash(...)` and
- * `numberToColor(value, min?, max?)` (see `accessorRuntime.ts`). `parse` validates/converts the
- * raw return value, falling back to `fallback` when it's missing, the wrong type, or the code
- * throws at runtime. Cached by `cacheKey` (not `code` alone — a number accessor and a colour
- * accessor could otherwise share one cache entry for the same code string and return each other's
- * stale, wrongly-typed result).
+ * per-row accessor. Besides `properties` and `d`, the code can call anything in `ACCESSOR_RUNTIME`
+ * (see `accessorRuntime.ts`) — exposed via `with`, not as individually named parameters, so adding
+ * a new runtime function never requires a change here. `parse` validates/converts the raw return
+ * value, falling back to `fallback` when it's missing, the wrong type, or the code throws at
+ * runtime. Cached by `cacheKey` (not `code` alone — a number accessor and a colour accessor could
+ * otherwise share one cache entry for the same code string and return each other's stale,
+ * wrongly-typed result).
  */
 function compile<T>(cacheKey: string, code: string, parse: (raw: unknown) => T | undefined, fallback: T): CompiledAccessor<T> {
   const cached = cache.get(cacheKey);
@@ -31,12 +32,12 @@ function compile<T>(cacheKey: string, code: string, parse: (raw: unknown) => T |
   try {
     const body = /\breturn\b/.test(code) ? code : `return (${code});`;
     // eslint-disable-next-line no-new-func -- the whole point: users write the accessor's JS
-    const raw = new Function('properties', 'd', 'hash', 'numberToColor', body) as
-      (properties: Record<string, unknown>, d: RowLike, hash: unknown, numberToColor: unknown) => unknown;
+    const raw = new Function('properties', 'd', 'runtime', `with (runtime) { ${body} }`) as
+      (properties: Record<string, unknown>, d: RowLike, runtime: typeof ACCESSOR_RUNTIME) => unknown;
     compiled = {
       fn: (d: RowLike) => {
         try {
-          const v = parse(raw(d.properties ?? {}, d, hash, numberToColor));
+          const v = parse(raw(d.properties ?? {}, d, ACCESSOR_RUNTIME));
           return v !== undefined ? v : fallback;
         } catch {
           return fallback;
