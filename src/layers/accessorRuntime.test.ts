@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hash, numberToColor } from './accessorRuntime';
+import { ACCESSOR_RUNTIME, hash, numberToColor, numberToGrayscale, numberToRainbow } from './accessorRuntime';
 
 describe('hash', () => {
   it('is deterministic for the same inputs', () => {
@@ -48,5 +48,46 @@ describe('numberToColor', () => {
   it('clamps out-of-range values instead of extrapolating', () => {
     expect(numberToColor(-5)).toBe('#2e86ab');
     expect(numberToColor(5)).toBe('#e4572e');
+  });
+});
+
+describe('numberToGrayscale', () => {
+  it('returns black at min and white at max (default 0..1)', () => {
+    expect(numberToGrayscale(0)).toBe('#000000');
+    expect(numberToGrayscale(1)).toBe('#ffffff');
+  });
+
+  it('interpolates for a custom [min, max] range', () => {
+    expect(numberToGrayscale(50, 0, 100)).toBe(numberToGrayscale(0.5));
+  });
+
+  it('clamps out-of-range values instead of extrapolating', () => {
+    expect(numberToGrayscale(-5)).toBe('#000000');
+    expect(numberToGrayscale(5)).toBe('#ffffff');
+  });
+});
+
+describe('numberToRainbow', () => {
+  it('returns a valid hex colour string', () => {
+    expect(numberToRainbow(0.5)).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it('wraps back to the same colour at min and max (0° and 360° are the same hue)', () => {
+    expect(numberToRainbow(0)).toBe(numberToRainbow(1));
+  });
+
+  it('spreads distinct values across visually distinct colours', () => {
+    const samples = [0, 0.2, 0.4, 0.6, 0.8].map((t) => numberToRainbow(t));
+    expect(new Set(samples).size).toBe(samples.length);
+  });
+
+  it('interpolates for a custom [min, max] range', () => {
+    expect(numberToRainbow(50, 0, 100)).toBe(numberToRainbow(0.5));
+  });
+});
+
+describe('ACCESSOR_RUNTIME', () => {
+  it('exposes every accessor runtime function by name', () => {
+    expect(ACCESSOR_RUNTIME).toEqual({ hash, numberToColor, numberToGrayscale, numberToRainbow });
   });
 });

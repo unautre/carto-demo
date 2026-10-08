@@ -65,6 +65,12 @@ describe('compileColorAccessor', () => {
     expect(fn({ properties: { v: 100 } })).toEqual([228, 87, 46]);
   });
 
+  it('can call other ACCESSOR_RUNTIME helpers too, e.g. numberToGrayscale()', () => {
+    const { fn, error } = compileColorAccessor('return numberToGrayscale(properties.v, 0, 1);', [0, 0, 0]);
+    expect(error).toBeUndefined();
+    expect(fn({ properties: { v: 1 } })).toEqual([255, 255, 255]);
+  });
+
   it("doesn't collide with a number accessor using the same code string", () => {
     // Same source text, different return types — must not share a cache entry and return the wrong shape.
     const code = 'return properties.v;';

@@ -1,6 +1,6 @@
 import type { LayerExtension } from '@deck.gl/core';
 import { DataFilterExtension } from '@deck.gl/extensions';
-import { hash, numberToColor } from './accessorRuntime';
+import { ACCESSOR_RUNTIME } from './accessorRuntime';
 import type { RowLike } from './accessors';
 import type { LoadedData } from '../data';
 import { durationMs } from '../duration';
@@ -26,9 +26,9 @@ const cache = new Map<string, CompiledFilter>();
 
 /**
  * Compiles user-supplied JS into a `getFilterValue` accessor. `code` is a function body
- * (an implicit `return` is added if it looks like a bare expression); it receives
- * `properties` (the row/feature's properties object), `d` (the raw row/feature), and the
- * `hash`/`numberToColor` helpers from `accessorRuntime.ts` (same sandbox as the style accessors).
+ * (an implicit `return` is added if it looks like a bare expression); it receives `properties`
+ * (the row/feature's properties object), `d` (the raw row/feature), and — via `with`, same as the
+ * style accessors — everything in `ACCESSOR_RUNTIME` (see `accessorRuntime.ts`).
  */
 export function compileFilterValue(code: string): CompiledFilter {
   const cached = cache.get(code);
@@ -38,12 +38,12 @@ export function compileFilterValue(code: string): CompiledFilter {
   try {
     const body = /\breturn\b/.test(code) ? code : `return (${code});`;
     // eslint-disable-next-line no-new-func -- the whole point: users write the filter's JS
-    const raw = new Function('properties', 'd', 'hash', 'numberToColor', body) as
-      (properties: Record<string, unknown>, d: RowLike, hash: unknown, numberToColor: unknown) => unknown;
+    const raw = new Function('properties', 'd', 'runtime', `with (runtime) { ${body} }`) as
+      (properties: Record<string, unknown>, d: RowLike, runtime: typeof ACCESSOR_RUNTIME) => unknown;
     compiled = {
       fn: (d: RowLike) => {
         try {
-          const v = raw(d.properties ?? {}, d, hash, numberToColor);
+          const v = raw(d.properties ?? {}, d, ACCESSOR_RUNTIME);
           return typeof v === 'number' && Number.isFinite(v) ? v : 0;
         } catch {
           return 0;
